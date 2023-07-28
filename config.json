@@ -1,0 +1,40 @@
+{
+  "system_configuration" : {
+    "connection" : ""
+  },
+  "dataset_definitions" : [
+    {
+      "name" : "sdb.animal",
+      "source_configuration" : {
+        "table_name" : "animal",
+        "query" : "select * from animal",
+        "since_query" : "select * from animal where modified > ?",
+        "snapshot_query" : "select * from animal where modified > ?",
+        "base_property_uri" : "http://data.mimiro.io/animal/",
+        "default_type" : "http://data.mimiro.io/Animal",
+        "map_all" : true
+      },
+      "mappings" : [
+        {
+          "entity_property" : "id",
+          "property" : "id",
+          "datatype" : "int",
+          "is_reference" : false,
+          "url_value_pattern" : "http://localhost:8080/animal/{value}"
+        },
+        {
+          "entity_property" : "name",
+          "property" : "$.names[0].firstname",
+          "datatype" : "string",
+          "is_reference" : false,
+          "url_value_pattern" : "http://localhost:8080/animal/{value}"
+        },
+        {
+          "entity_property" : "dob",
+          "property" : "dateofbirth",
+          "datatype" : "DateTime"
+        }
+      ]
+    }
+  ]
+}
