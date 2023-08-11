@@ -7,8 +7,8 @@ import (
 	"sync"
 	"syscall"
 
-	"mimiro.io/common-datalayer/core"
-	"mimiro.io/common-datalayer/layer"
+	"github.com/mimiro-io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/layer"
 )
 
 func loadConfig(args []string) (core.Config, error) {

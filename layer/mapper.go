@@ -3,7 +3,7 @@ package layer
 import (
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 
-	"mimiro.io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/core"
 )
 
 type ItemToEntityMapper interface {

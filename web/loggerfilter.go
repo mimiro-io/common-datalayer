@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"mimiro.io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/core"
 )
 
 type LoggerConfig struct {

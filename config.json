@@ -1,8 +1,8 @@
 {
   "system_configuration" : {
     "connection" : "",
-    "port"
-            "environment": "dev"
+    "port" : "8080",
+    "environment" : "dev"
   },
   "dataset_definitions" : [
     {

@@ -10,9 +10,9 @@ import (
 	"github.com/labstack/echo/v4"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 
-	"mimiro.io/common-datalayer/core"
-	"mimiro.io/common-datalayer/layer"
-	"mimiro.io/common-datalayer/web"
+	"github.com/mimiro-io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/layer"
+	"github.com/mimiro-io/common-datalayer/web"
 )
 
 type DataLayerWebService struct {

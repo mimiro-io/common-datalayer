@@ -1,7 +1,7 @@
 package layer
 
 import (
-	"mimiro.io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/core"
 )
 
 type DataLayerService interface {

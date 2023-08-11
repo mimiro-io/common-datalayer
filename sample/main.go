@@ -1,6 +1,6 @@
 package main
 
-import common_datalayer "mimiro.io/common-datalayer"
+import common_datalayer "github.com/mimiro-io/common-datalayer"
 
 // main function
 func main() {

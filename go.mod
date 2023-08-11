@@ -1,4 +1,4 @@
-module mimiro.io/common-datalayer
+module github.com/mimiro-io/common-datalayer
 
 go 1.21
 

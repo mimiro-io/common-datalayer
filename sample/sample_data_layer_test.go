@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	common_datalayer "mimiro.io/common-datalayer"
+	common_datalayer "github.com/mimiro-io/common-datalayer"
 )
 
 func TestNewSampleDataLayer(t *testing.T) {
