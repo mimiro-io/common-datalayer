@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"mimiro.io/common-datalayer/core"
-	"mimiro.io/common-datalayer/layer"
+	"github.com/mimiro-io/common-datalayer/core"
+	"github.com/mimiro-io/common-datalayer/layer"
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
