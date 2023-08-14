@@ -11,7 +11,7 @@ import (
 	"github.com/mimiro-io/common-datalayer/layer"
 )
 
-func loadConfig(args []string) (core.Config, error) {
+func loadConfig(args []string) (*core.Config, error) {
 	config := core.NewConfig()
 	err := config.Load(args)
 	if err != nil {
@@ -36,7 +36,7 @@ func (s *Service) Stop() {
 func StartService(
 	args []string,
 	newLayerService func(core *core.Service) (layer.DataLayerService, error),
-	enrichConfig func(args []string, config core.Config) error,
+	enrichConfig func(args []string, config *core.Config) error,
 ) {
 	s := CreateService(args, newLayerService, enrichConfig)
 	// handle shutdown, this call blocks and keeps the application running
@@ -46,7 +46,7 @@ func StartService(
 func CreateService(
 	args []string,
 	newLayerService func(core *core.Service) (layer.DataLayerService, error),
-	enrichConfig func(args []string, config core.Config) error,
+	enrichConfig func(args []string, config *core.Config) error,
 ) Service {
 	// create core layer service
 	// read config
@@ -54,7 +54,7 @@ func CreateService(
 	if err != nil {
 		panic(err)
 	}
-	err = config.SystemConfig().Verify()
+	err = config.SystemConfig.Verify()
 	if err != nil {
 		panic(err)
 	}

@@ -28,45 +28,24 @@ type EntityPropertyMapping struct {
 	IsIdentity      bool
 }
 
-type DatasetDefinitions struct {
-	List []*DatasetDefinition
+type Config struct {
+	SystemConfig       *SystemConfig
+	DatasetDefinitions []*DatasetDefinition
 }
 
-type Config interface {
-	SystemConfig() *SystemConfig
-	DatasetDefinitions() *DatasetDefinitions
-	GetDatasetDefinition(dataset string) *DatasetDefinition
-}
-
-type LoadableConfig interface {
-	Config
-	Load(args []string) error
-}
-
-type DefaultConfig struct {
-	systemConfig       *SystemConfig
-	datasetDefinitions *DatasetDefinitions
-}
-
-func (c *DefaultConfig) Load(args []string) error {
+func (c *Config) Load(args []string) error {
 	for _, arg := range args {
 		// TODO each arg is a file location? Load and merge?
 		println("not loading ", arg)
 		// for now, just add some values
-		c.systemConfig.Properties["PORT"] = "8080"
-		c.systemConfig.Properties["SERVICE_NAME"] = "UNKNOWN_SERVICE"
+		c.SystemConfig.Properties["PORT"] = "8080"
+		c.SystemConfig.Properties["SERVICE_NAME"] = "UNKNOWN_SERVICE"
 	}
 	return nil
 }
 
-func (c *DefaultConfig) SystemConfig() *SystemConfig {
-	return c.systemConfig
-}
-func (c *DefaultConfig) DatasetDefinitions() *DatasetDefinitions {
-	return c.datasetDefinitions
-}
-func (c *DefaultConfig) GetDatasetDefinition(dataset string) *DatasetDefinition {
-	for _, def := range c.datasetDefinitions.List {
+func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
+	for _, def := range c.DatasetDefinitions {
 		if def.DatasetName == dataset {
 			return def
 		}
@@ -74,19 +53,19 @@ func (c *DefaultConfig) GetDatasetDefinition(dataset string) *DatasetDefinition 
 	return nil
 }
 
-func NewConfig() LoadableConfig {
-	res := &DefaultConfig{}
-	res.systemConfig = &SystemConfig{}
-	res.systemConfig.Properties = make(map[string]any)
-	res.datasetDefinitions = &DatasetDefinitions{make([]*DatasetDefinition, 0)}
+func NewConfig() *Config {
+	res := &Config{}
+	res.SystemConfig = &SystemConfig{}
+	res.SystemConfig.Properties = make(map[string]any)
+	res.DatasetDefinitions = make([]*DatasetDefinition, 0)
 	return res
 }
 
 type Initialization interface {
-	Initialize(config Config, logger Logger) error
+	Initialize(config *Config, logger Logger) error
 }
 
-func ReadConfig(data io.Reader) Config {
+func ReadConfig(data io.Reader) *Config {
 	return nil
 }
 

@@ -10,9 +10,8 @@ import (
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
-func EnrichConfig(args []string, config core.Config) error {
-	defs := config.DatasetDefinitions()
-	defs.List = append(defs.List, &core.DatasetDefinition{
+func EnrichConfig(args []string, config *core.Config) error {
+	config.DatasetDefinitions = append(config.DatasetDefinitions, &core.DatasetDefinition{
 		DatasetName:  "sample",
 		SourceConfig: map[string]any{"stripProps": true},
 		Mappings: []*core.EntityPropertyMapping{
@@ -81,7 +80,7 @@ func (d *DataObject) AsBytes() []byte {
 
 // SampleDataLayer is a sample implementation of the DataLayer interface
 type SampleDataLayer struct {
-	config   core.Config
+	config   *core.Config
 	logger   core.Logger
 	metrics  core.Metrics
 	datasets map[string]*SampleDataset
@@ -151,10 +150,10 @@ func NewSampleDataLayer(core *core.Service) (layer.DataLayerService, error) {
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(config core.Config, logger core.Logger) error {
+func (dl *SampleDataLayer) Initialize(config *core.Config, logger core.Logger) error {
 	dl.config = config
 	for k, v := range dl.datasets {
-		for _, dsd := range config.DatasetDefinitions().List {
+		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
 				v.mappings = dsd.Mappings
 			}

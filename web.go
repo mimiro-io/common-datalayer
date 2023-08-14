@@ -43,7 +43,7 @@ func NewDataLayerWebService(core *core.Service, dataLayerService layer.DataLayer
 }
 
 func (ws *DataLayerWebService) Start() error {
-	port := ws.core.Config.SystemConfig().HttpPort()
+	port := ws.core.Config.SystemConfig.HttpPort()
 	ws.core.Logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)

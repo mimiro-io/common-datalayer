@@ -21,18 +21,18 @@ func NewMiddleware(core *core.Service) Middleware {
 
 	m := Middleware{LoggerFilter(LoggerConfig{Skipper: skipper, core: core})}
 
-	m = append(m, setupCors(core.Config.SystemConfig()))
+	//m = append(m, setupCors(core.Config.SystemConfig))
 	//m = append(m, setupJWT(core.Config.SystemConfig().AuthConfig(), skipper))
 	m = append(m, setupRecovery(skipper, core.Logger))
 	return m
 }
 
-func setupCors(conf *core.SystemConfig) echo.MiddlewareFunc {
-	return middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: conf.CorsOrigins(),
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
-	})
-}
+//func setupCors(conf *core.SystemConfig) echo.MiddlewareFunc {
+//	return middleware.CORSWithConfig(middleware.CORSConfig{
+//		AllowOrigins: conf.CorsOrigins(),
+//		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept},
+//	})
+//}
 
 func setupRecovery(skipper func(c echo.Context) bool, logger core.Logger) echo.MiddlewareFunc {
 	config := middleware.DefaultRecoverConfig

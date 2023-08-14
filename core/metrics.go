@@ -28,7 +28,7 @@ func (sm StatsdMetrics) Gauge(name string, value float64, tags []string, rate in
 	return sm.client.Gauge(name, value, tags, float64(rate))
 }
 
-func NewMetrics(conf Config) Metrics {
+func NewMetrics(conf *Config) Metrics {
 	// TODO: wire up proper client from config
 	return &StatsdMetrics{&statsd.NoOpClient{}}
 }
