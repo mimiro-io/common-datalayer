@@ -180,10 +180,6 @@ func (ds *SampleDataset) WriteItem(item layer.Item) error {
 	return nil
 }
 
-func (ds *SampleDataset) WriteRows(items layer.ItemIterator) error {
-	panic("implement me")
-}
-
 func (ds *SampleDataset) GetName() string {
 	return ds.Name
 }

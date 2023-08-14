@@ -82,7 +82,7 @@ func NewConfig() LoadableConfig {
 	return res
 }
 
-type ReInitializable interface {
+type Initialization interface {
 	Initialize(config Config, logger Logger) error
 }
 

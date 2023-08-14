@@ -6,35 +6,18 @@ import (
 
 type DataLayerService interface {
 	Stoppable
-	DatasetManager
-	core.ReInitializable
-}
-
-type DatasetManager interface {
+	core.Initialization
 	GetDataset(dataset string) Dataset
 	ListDatasetNames() []string
 }
 
-type EntityReader interface {
-	GetChanges(since string, take int, latestOnly bool) (EntityIterator, error)
-	GetEntities(since string, take int) (EntityIterator, error)
-}
-
-type RowWriter interface {
-	WriteRows(items ItemIterator) error
+type Dataset interface {
+	Description() map[string]interface{}
+	GetName() string
 	WriteItem(item Item) error
-}
-
-type FullSyncRowWriter interface {
-	RowWriter
 	BeginFullSync() error
 	CompleteFullSync() error
 	CancelFullSync() error
-}
-
-type Dataset interface {
-	EntityReader
-	FullSyncRowWriter
-	Description() map[string]interface{}
-	GetName() string
+	GetChanges(since string, take int, latestOnly bool) (EntityIterator, error)
+	GetEntities(since string, take int) (EntityIterator, error)
 }
