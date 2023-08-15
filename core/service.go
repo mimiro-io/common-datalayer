@@ -1,7 +1,7 @@
 package core
 
 type Service struct {
-	Config  Config
+	Config  *Config
 	Logger  Logger
 	Metrics Metrics
 }

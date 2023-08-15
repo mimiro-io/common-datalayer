@@ -22,7 +22,7 @@ type LoggerConfig struct {
 }
 
 func LoggerFilter(config LoggerConfig) echo.MiddlewareFunc {
-	service := config.core.Config.SystemConfig().ServiceName()
+	service := config.core.Config.SystemConfig.ServiceName()
 
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
