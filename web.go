@@ -6,40 +6,119 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"runtime"
+	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-
-	"github.com/mimiro-io/common-datalayer/core"
-	"github.com/mimiro-io/common-datalayer/layer"
-	"github.com/mimiro-io/common-datalayer/web"
 )
 
 type DataLayerWebService struct {
 	// service specific service core
-	datalayerService layer.DataLayerService
+	datalayerService DataLayerService
 
-	core *core.Service
+	core *CoreService
 	e    *echo.Echo
 }
 
-func NewDataLayerWebService(core *core.Service, dataLayerService layer.DataLayerService) (*DataLayerWebService, error) {
+func NewDataLayerWebService(core *CoreService, dataLayerService DataLayerService) (*DataLayerWebService, error) {
 
 	e := echo.New()
 	e.HideBanner = true
 
-	mw := web.NewMiddleware(core)
-	e.Use(mw...)
+	mw(core, e)
 
 	s := &DataLayerWebService{core: core, datalayerService: dataLayerService, e: e}
 
 	e.GET("/health", s.health)
 	e.POST("/datasets/:dataset/entities", s.postEntities)
-	e.GET("/datasets/:dataset/entities", s.GetEntities)
-	e.GET("/datasets/:dataset/changes", s.GetChanges)
-	e.GET("/datasets", s.ListDatasets)
+	e.GET("/datasets/:dataset/entities", s.getEntities)
+	e.GET("/datasets/:dataset/changes", s.getChanges)
+	e.GET("/datasets", s.listDatasets)
 
 	return s, nil
+}
+
+// wrap all handlers with middleware
+func mw(core *CoreService, e *echo.Echo) {
+	skipper := func(c echo.Context) bool {
+		// skip health check
+		return strings.HasPrefix(c.Request().URL.Path, "/health")
+	}
+	e.Use(
+		// Request logging and HTTP metrics
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			//service := core.Config.SystemConfig.ServiceName()
+			return func(c echo.Context) error {
+				if skipper(c) {
+					return next(c)
+				}
+
+				start := time.Now()
+				tags := []string{
+					//fmt.Sprintf("application:%s", service),
+					fmt.Sprintf("method:%s", strings.ToLower(c.Request().Method)),
+					fmt.Sprintf("url:%s", strings.ToLower(c.Request().RequestURI)),
+					fmt.Sprintf("status:%d", c.Response().Status),
+				}
+
+				// Recover from panic
+				defer func() {
+					if r := recover(); r != nil {
+						err, ok := r.(error)
+						if !ok {
+							err = fmt.Errorf("%v", r)
+						}
+						stack := make([]byte, middleware.DefaultRecoverConfig.StackSize)
+						length := runtime.Stack(stack, !middleware.DefaultRecoverConfig.DisableStackAll)
+						if !middleware.DefaultRecoverConfig.DisablePrintStack {
+							msg := fmt.Sprintf("[PANIC RECOVER] %v %s\n", err, stack[:length])
+							core.Logger.Warn(msg)
+						}
+						c.Error(err)
+					}
+				}()
+
+				// next middleware/handler
+				err := next(c)
+				if err != nil {
+					c.Error(err)
+				}
+
+				timed := time.Since(start)
+
+				err = core.Metrics.Incr("http.count", tags, 1)
+				err = core.Metrics.Timing("http.time", timed, tags, 1)
+				err = core.Metrics.Gauge("http.size", float64(c.Response().Size), tags, 1)
+				if err != nil {
+					core.Logger.Warn("Error with metrics", "error", err.Error())
+				}
+
+				msg := fmt.Sprintf("%d - %s %s (time: %s, size: %d, user_agent: %s)",
+					c.Response().Status, c.Request().Method, c.Request().RequestURI, timed.String(),
+					c.Response().Size, c.Request().UserAgent())
+
+				args := []any{
+					"time", timed.String(),
+					"request", fmt.Sprintf("%s %s", c.Request().Method, c.Request().RequestURI),
+					"status", c.Response().Status,
+					"size", c.Response().Size,
+					"user_agent", c.Request().UserAgent(),
+				}
+
+				id := c.Request().Header.Get(echo.HeaderXRequestID)
+				if id == "" {
+					id = c.Response().Header().Get(echo.HeaderXRequestID)
+					args = append(args, "request_id", id)
+				}
+
+				core.Logger.Info(msg, args...)
+
+				return nil
+			}
+		})
 }
 
 func (ws *DataLayerWebService) Start() error {
@@ -56,10 +135,6 @@ func (ws *DataLayerWebService) Stop(ctx context.Context) error {
 	return ws.e.Shutdown(ctx)
 }
 
-func (ws *DataLayerWebService) Restart() error {
-	return nil
-}
-
 // TODO mechanism to add health checks from layer code
 func (ws *DataLayerWebService) health(c echo.Context) error {
 	return c.String(http.StatusOK, "UP")
@@ -74,7 +149,7 @@ func (ws *DataLayerWebService) postEntities(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
 	mappings := ws.core.Config.GetDatasetDefinition(datasetName).Mappings
-	mapper := layer.NewDefaultItemMapper(mappings)
+	mapper := NewDefaultItemMapper(mappings)
 	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
 	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
 	if !ws.core.Config.GetDatasetDefinition(datasetName).StripProps() {
@@ -98,7 +173,7 @@ func (ws *DataLayerWebService) postEntities(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (ws *DataLayerWebService) GetEntities(c echo.Context) error {
+func (ws *DataLayerWebService) getEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.core.Logger.Info(fmt.Sprintf("GET entities for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
@@ -107,7 +182,7 @@ func (ws *DataLayerWebService) GetEntities(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
 	entityIterator, err := ws.datalayerService.GetDataset(datasetName).GetEntities("", 10000)
-	err = ws.writeEntities(c, entityIterator)
+	err = ws.responseOut(c, entityIterator)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -115,7 +190,7 @@ func (ws *DataLayerWebService) GetEntities(c echo.Context) error {
 	return nil
 }
 
-func (ws *DataLayerWebService) GetChanges(c echo.Context) error {
+func (ws *DataLayerWebService) getChanges(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.core.Logger.Info(fmt.Sprintf("GET changes for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
@@ -128,7 +203,7 @@ func (ws *DataLayerWebService) GetChanges(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	err = ws.writeEntities(c, entityIterator)
+	err = ws.responseOut(c, entityIterator)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -136,7 +211,7 @@ func (ws *DataLayerWebService) GetChanges(c echo.Context) error {
 	return nil
 }
 
-func (ws *DataLayerWebService) writeEntities(c echo.Context, entityIterator layer.EntityIterator) error {
+func (ws *DataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
 	for {
 		entity := entityIterator.Next()
 		//fmt.Println(entity, entity == nil)
@@ -157,7 +232,7 @@ func (ws *DataLayerWebService) writeEntities(c echo.Context, entityIterator laye
 	return nil
 }
 
-func (ws *DataLayerWebService) ListDatasets(c echo.Context) error {
+func (ws *DataLayerWebService) listDatasets(c echo.Context) error {
 	ws.core.Logger.Info("listing datasets")
 	b, err := json.Marshal(ws.datalayerService.ListDatasetNames())
 	if err != nil {

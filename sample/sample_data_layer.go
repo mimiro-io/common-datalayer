@@ -5,16 +5,15 @@ import (
 	"encoding/json"
 	"strconv"
 
-	"github.com/mimiro-io/common-datalayer/core"
-	"github.com/mimiro-io/common-datalayer/layer"
+	layer "github.com/mimiro-io/common-datalayer"
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
-func EnrichConfig(args []string, config *core.Config) error {
-	config.DatasetDefinitions = append(config.DatasetDefinitions, &core.DatasetDefinition{
+func EnrichConfig(args []string, config *layer.Config) error {
+	config.DatasetDefinitions = append(config.DatasetDefinitions, &layer.DatasetDefinition{
 		DatasetName:  "sample",
-		SourceConfig: map[string]any{"stripProps": true},
-		Mappings: []*core.EntityPropertyMapping{
+		SourceConfig: map[string]any{"stripProps": "true"},
+		Mappings: []*layer.EntityPropertyMapping{
 			{
 				EntityProperty:  "ID",
 				Property:        "ID",
@@ -80,9 +79,9 @@ func (d *DataObject) AsBytes() []byte {
 
 // SampleDataLayer is a sample implementation of the DataLayer interface
 type SampleDataLayer struct {
-	config   *core.Config
-	logger   core.Logger
-	metrics  core.Metrics
+	config   *layer.Config
+	logger   layer.Logger
+	metrics  layer.Metrics
 	datasets map[string]*SampleDataset
 }
 
@@ -125,7 +124,7 @@ func (dl *SampleDataLayer) Stop(_ context.Context) error { return nil }
 
 // NewSampleDataLayer is a factory function that creates a new instance of the sample data layer
 // In this example we use it to populate the sample dataset with some data
-func NewSampleDataLayer(core *core.Service) (layer.DataLayerService, error) {
+func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error) {
 	sampleDataLayer := &SampleDataLayer{}
 
 	// initialize the datasets
@@ -150,7 +149,7 @@ func NewSampleDataLayer(core *core.Service) (layer.DataLayerService, error) {
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(config *core.Config, logger core.Logger) error {
+func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger) error {
 	dl.config = config
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
@@ -168,7 +167,7 @@ func (dl *SampleDataLayer) Initialize(config *core.Config, logger core.Logger) e
 // SampleDataset is a sample implementation of the Dataset interface, it provides a simple in-memory dataset in this case
 type SampleDataset struct {
 	Name     string
-	mappings []*core.EntityPropertyMapping
+	mappings []*layer.EntityPropertyMapping
 	data     [][]byte
 }
 

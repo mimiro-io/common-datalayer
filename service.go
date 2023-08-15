@@ -6,13 +6,10 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
-
-	"github.com/mimiro-io/common-datalayer/core"
-	"github.com/mimiro-io/common-datalayer/layer"
 )
 
-func loadConfig(args []string) (*core.Config, error) {
-	config := core.NewConfig()
+func loadConfig(args []string) (*Config, error) {
+	config := NewConfig()
 	err := config.Load(args)
 	if err != nil {
 		return nil, err
@@ -20,9 +17,12 @@ func loadConfig(args []string) (*core.Config, error) {
 	return config, nil
 }
 
+type Stoppable interface {
+	Stop(ctx context.Context) error
+}
 type Service struct {
-	stoppables []layer.Stoppable
-	logger     core.Logger
+	stoppables []Stoppable
+	logger     Logger
 }
 
 func (s *Service) Stop() {
@@ -35,8 +35,8 @@ func (s *Service) Stop() {
 // StartService call this from main to get things started
 func StartService(
 	args []string,
-	newLayerService func(core *core.Service) (layer.DataLayerService, error),
-	enrichConfig func(args []string, config *core.Config) error,
+	newLayerService func(core *CoreService) (DataLayerService, error),
+	enrichConfig func(args []string, config *Config) error,
 ) {
 	s := CreateService(args, newLayerService, enrichConfig)
 	// handle shutdown, this call blocks and keeps the application running
@@ -45,8 +45,8 @@ func StartService(
 
 func CreateService(
 	args []string,
-	newLayerService func(core *core.Service) (layer.DataLayerService, error),
-	enrichConfig func(args []string, config *core.Config) error,
+	newLayerService func(core *CoreService) (DataLayerService, error),
+	enrichConfig func(args []string, config *Config) error,
 ) Service {
 	// create core layer service
 	// read config
@@ -66,11 +66,14 @@ func CreateService(
 		panic(err)
 	}
 	// initialise logger
-	logger := core.NewLogger()
+	logger := newLogger()
 
-	metrics := core.NewMetrics(config)
+	metrics, err := newMetrics(config)
+	if err != nil {
+		panic(err)
+	}
 
-	cs := &core.Service{
+	cs := &CoreService{
 		Config:  config,
 		Logger:  logger,
 		Metrics: metrics,
@@ -98,13 +101,13 @@ func CreateService(
 	if err != nil {
 		panic(err)
 	}
-	return Service{stoppables: []layer.Stoppable{layerService, webService}, logger: logger}
+	return Service{stoppables: []Stoppable{layerService, webService}, logger: logger}
 }
 
 // waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
 //
 //	It accepts a list of stoppables that will be stopped when a signal is received.
-func waitForStop(logger core.Logger, stoppables ...layer.Stoppable) {
+func waitForStop(logger Logger, stoppables ...Stoppable) {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan

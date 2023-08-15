@@ -1,12 +1,8 @@
-package layer
-
-import (
-	"github.com/mimiro-io/common-datalayer/core"
-)
+package common_datalayer
 
 type DataLayerService interface {
 	Stoppable
-	core.Initialization
+	Initialization
 	GetDataset(dataset string) Dataset
 	ListDatasetNames() []string
 }
