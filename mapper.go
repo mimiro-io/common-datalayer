@@ -1,16 +1,9 @@
-package layer
+package common_datalayer
 
 import (
-	"context"
-
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-
-	"github.com/mimiro-io/common-datalayer/core"
 )
 
-type Stoppable interface {
-	Stop(ctx context.Context) error
-}
 type Item interface {
 	GetRaw() map[string]any
 	PutRaw(raw map[string]any)
@@ -51,7 +44,7 @@ type EntityIterator interface {
 type MappingEntityIterator struct {
 	mapper        ItemToEntityMapper
 	rowIterator   ItemIterator
-	customMapping func(mapping *core.EntityPropertyMapping, item Item, entity egdm.Entity)
+	customMapping func(mapping *EntityPropertyMapping, item Item, entity egdm.Entity)
 }
 
 func (m MappingEntityIterator) Next() *egdm.Entity {
@@ -74,9 +67,9 @@ func (m MappingEntityIterator) Close() {
 }
 
 func NewMappingEntityIterator(
-	mappings []*core.EntityPropertyMapping,
+	mappings []*EntityPropertyMapping,
 	itemIterator ItemIterator,
-	customMapping func(mapping *core.EntityPropertyMapping, item Item, entity egdm.Entity),
+	customMapping func(mapping *EntityPropertyMapping, item Item, entity egdm.Entity),
 ) *MappingEntityIterator {
 	return &MappingEntityIterator{
 		mapper:        NewGenericEntityMapper(mappings),
@@ -86,7 +79,7 @@ func NewMappingEntityIterator(
 }
 
 type DefaultItemMapper struct {
-	mappings []*core.EntityPropertyMapping
+	mappings []*EntityPropertyMapping
 }
 
 func (d DefaultItemMapper) EntityToItem(entity *egdm.Entity) Item {
@@ -101,6 +94,37 @@ func (d DefaultItemMapper) EntityToItem(entity *egdm.Entity) Item {
 	return defaultItem
 }
 
-func NewDefaultItemMapper(mappings []*core.EntityPropertyMapping) EntityToItemMapper {
+func NewDefaultItemMapper(mappings []*EntityPropertyMapping) EntityToItemMapper {
 	return &DefaultItemMapper{mappings: mappings}
+}
+
+type ItemToEntityMapper interface {
+	ItemToEntity(item Item) *egdm.Entity
+}
+type EntityToItemMapper interface {
+	EntityToItem(entity *egdm.Entity) Item
+}
+
+type GenericEntityMapper struct {
+	Mappings []*EntityPropertyMapping
+}
+
+func (em *GenericEntityMapper) ItemToEntity(item Item) *egdm.Entity {
+	entity := egdm.NewEntity()
+	for _, mapping := range em.Mappings {
+		sourcePropertyValue := item.GetValue(mapping.Property)
+
+		if mapping.IsIdentity {
+			entity.ID = sourcePropertyValue.(string)
+		} else {
+			entity.Properties[mapping.EntityProperty] = sourcePropertyValue
+		}
+	}
+	return entity
+}
+
+func NewGenericEntityMapper(mappings []*EntityPropertyMapping) *GenericEntityMapper {
+	return &GenericEntityMapper{
+		Mappings: mappings,
+	}
 }
