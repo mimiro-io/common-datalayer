@@ -50,7 +50,7 @@ func ConfigFileOption(configFile string) Option {
 	}
 }
 func Start(
-	newLayerService func(core *CoreService) (DataLayerService, error),
+	newLayerService func(conf *SystemConfig, logger Logger, metrics Metrics) (DataLayerService, error),
 	options ...Option,
 ) *Service {
 	// create core layer service
@@ -86,13 +86,7 @@ func Start(
 		panic(err)
 	}
 
-	cs := &CoreService{
-		config:  config,
-		Logger:  l,
-		Metrics: metrics,
-	}
-
-	layerService, err := newLayerService(cs)
+	layerService, err := newLayerService(config.SystemConfig, l, metrics)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +98,7 @@ func Start(
 	// TODO: hook up config updater which calls layerService.Initialize on change
 
 	// create web service hook up with the service core
-	webService, err := newDataLayerWebService(cs, layerService)
+	webService, err := newDataLayerWebService(config, l, metrics, layerService)
 	if err != nil {
 		panic(err)
 	}

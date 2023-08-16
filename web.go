@@ -19,18 +19,20 @@ type dataLayerWebService struct {
 	// service specific service core
 	datalayerService DataLayerService
 
-	core *CoreService
-	e    *echo.Echo
+	e       *echo.Echo
+	metrics Metrics
+	logger  Logger
+	config  *Config
 }
 
-func newDataLayerWebService(core *CoreService, dataLayerService DataLayerService) (*dataLayerWebService, error) {
+func newDataLayerWebService(config *Config, logger Logger, metrics Metrics, dataLayerService DataLayerService) (*dataLayerWebService, error) {
 
 	e := echo.New()
 	e.HideBanner = true
 
-	mw(core, e)
+	mw(logger, metrics, e)
 
-	s := &dataLayerWebService{core: core, datalayerService: dataLayerService, e: e}
+	s := &dataLayerWebService{config: config, logger: logger, metrics: metrics, datalayerService: dataLayerService, e: e}
 
 	e.GET("/health", s.health)
 	e.POST("/datasets/:dataset/entities", s.postEntities)
@@ -42,7 +44,7 @@ func newDataLayerWebService(core *CoreService, dataLayerService DataLayerService
 }
 
 // wrap all handlers with middleware
-func mw(core *CoreService, e *echo.Echo) {
+func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 	skipper := func(c echo.Context) bool {
 		// skip health check
 		return strings.HasPrefix(c.Request().URL.Path, "/health")
@@ -75,7 +77,7 @@ func mw(core *CoreService, e *echo.Echo) {
 						length := runtime.Stack(stack, !middleware.DefaultRecoverConfig.DisableStackAll)
 						if !middleware.DefaultRecoverConfig.DisablePrintStack {
 							msg := fmt.Sprintf("[PANIC RECOVER] %v %s\n", err, stack[:length])
-							core.Logger.Warn(msg)
+							logger.Warn(msg)
 						}
 						c.Error(err)
 					}
@@ -89,11 +91,11 @@ func mw(core *CoreService, e *echo.Echo) {
 
 				timed := time.Since(start)
 
-				err = core.Metrics.Incr("http.count", tags, 1)
-				err = core.Metrics.Timing("http.time", timed, tags, 1)
-				err = core.Metrics.Gauge("http.size", float64(c.Response().Size), tags, 1)
+				err = metrics.Incr("http.count", tags, 1)
+				err = metrics.Timing("http.time", timed, tags, 1)
+				err = metrics.Gauge("http.size", float64(c.Response().Size), tags, 1)
 				if err != nil {
-					core.Logger.Warn("Error with metrics", "error", err.Error())
+					logger.Warn("Error with metrics", "error", err.Error())
 				}
 
 				msg := fmt.Sprintf("%d - %s %s (time: %s, size: %d, user_agent: %s)",
@@ -114,7 +116,7 @@ func mw(core *CoreService, e *echo.Echo) {
 					args = append(args, "request_id", id)
 				}
 
-				core.Logger.Info(msg, args...)
+				logger.Info(msg, args...)
 
 				return nil
 			}
@@ -122,8 +124,8 @@ func mw(core *CoreService, e *echo.Echo) {
 }
 
 func (ws *dataLayerWebService) Start() error {
-	port := ws.core.config.SystemConfig.HttpPort()
-	ws.core.Logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
+	port := ws.config.SystemConfig.HttpPort()
+	ws.logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)
 	}()
@@ -142,17 +144,17 @@ func (ws *dataLayerWebService) health(c echo.Context) error {
 
 func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
-	ws.core.Logger.Info(fmt.Sprintf("POST to dataset %s", datasetName))
+	ws.logger.Info(fmt.Sprintf("POST to dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
 	if ds == nil {
-		ws.core.Logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
+		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
-	mappings := ws.core.config.GetDatasetDefinition(datasetName).Mappings
+	mappings := ws.config.GetDatasetDefinition(datasetName).Mappings
 	mapper := NewDefaultItemMapper(mappings)
 	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
 	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
-	if !ws.core.config.GetDatasetDefinition(datasetName).StripProps() {
+	if !ws.config.GetDatasetDefinition(datasetName).StripProps() {
 		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
 		parser = parser.WithExpandURIs()
 	}
@@ -166,7 +168,7 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 		return nil
 	}, nil)
 	if err != nil {
-		ws.core.Logger.Warn(err.Error())
+		ws.logger.Warn(err.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "could not parse the json payload")
 	}
 
@@ -175,10 +177,10 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 
 func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
-	ws.core.Logger.Info(fmt.Sprintf("GET entities for dataset %s", datasetName))
+	ws.logger.Info(fmt.Sprintf("GET entities for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
 	if ds == nil {
-		ws.core.Logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
+		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
 	entityIterator, err := ws.datalayerService.GetDataset(datasetName).GetEntities("", 10000)
@@ -192,10 +194,10 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 
 func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
-	ws.core.Logger.Info(fmt.Sprintf("GET changes for dataset %s", datasetName))
+	ws.logger.Info(fmt.Sprintf("GET changes for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
 	if ds == nil {
-		ws.core.Logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
+		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
 
@@ -233,7 +235,7 @@ func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator Entity
 }
 
 func (ws *dataLayerWebService) listDatasets(c echo.Context) error {
-	ws.core.Logger.Info("listing datasets")
+	ws.logger.Info("listing datasets")
 	b, err := json.Marshal(ws.datalayerService.ListDatasetNames())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

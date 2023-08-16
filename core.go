@@ -8,16 +8,6 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 )
 
-type CoreService struct {
-	config  *Config
-	Logger  Logger
-	Metrics Metrics
-}
-
-func (c CoreService) SystemConfig() *SystemConfig {
-	return c.config.SystemConfig
-}
-
 type Metrics interface {
 	Incr(s string, tags []string, i int) error
 	Timing(s string, timed time.Duration, tags []string, i int) error
