@@ -7,7 +7,7 @@ func TestConfig(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if config.SystemConfig.ServiceName() != "sample" {
+	if config.ApplicationConfig.ServiceName() != "sample" {
 		t.Error("ServiceName should be sample")
 	}
 }

@@ -50,23 +50,22 @@ func ConfigFileOption(configFile string) Option {
 	}
 }
 func Start(
-	newLayerService func(conf *SystemConfig, logger Logger, metrics Metrics) (DataLayerService, error),
+	newLayerService func(conf *Config, logger Logger, metrics Metrics) (DataLayerService, error),
 	options ...Option,
 ) *Service {
-	// create core layer service
-	// read config
 	so := &StartOptions{}
 	for _, option := range options {
 		option(so)
 	}
-	args := []string{os.Getenv("DATALAYER_CONFIG_PATH")}
+	var args []string
+	defaultPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
+	if found {
+		args = append(args, defaultPath)
+	}
 	args = append(args, so.configFiles...)
 	config, err := loadConfig(args)
 	if err != nil {
-		panic(err)
-	}
-	err = config.SystemConfig.Verify()
-	if err != nil {
+
 		panic(err)
 	}
 
@@ -79,23 +78,22 @@ func Start(
 	}
 
 	// initialise l
-	l := newLogger()
+	l := newLogger(config)
 
 	metrics, err := newMetrics(config)
 	if err != nil {
 		panic(err)
 	}
 
-	layerService, err := newLayerService(config.SystemConfig, l, metrics)
+	layerService, err := newLayerService(config, l, metrics)
 	if err != nil {
 		panic(err)
 	}
 
-	err = layerService.Initialize(config.DatasetDefinitions)
+	updater, err := newConfigUpdater(config, args, so.enrichConfig, l, layerService)
 	if err != nil {
 		panic(err)
 	}
-	// TODO: hook up config updater which calls layerService.Initialize on change
 
 	// create web service hook up with the service core
 	webService, err := newDataLayerWebService(config, l, metrics, layerService)
@@ -109,7 +107,7 @@ func Start(
 		panic(err)
 	}
 	return &Service{
-		stoppables: []Stoppable{layerService, webService},
+		stoppables: []Stoppable{updater, layerService, webService},
 		logger:     l}
 }
 

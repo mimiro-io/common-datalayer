@@ -27,6 +27,7 @@ func EnrichConfig(config *layer.Config) error {
 			},
 		},
 	})
+	//config.ApplicationConfig["env"] = "local"
 	return nil
 }
 
@@ -34,10 +35,10 @@ func EnrichConfig(config *layer.Config) error {
 
 // SampleDataLayer is a sample implementation of the DataLayer interface
 type SampleDataLayer struct {
-	systemConfig *layer.SystemConfig
-	logger       layer.Logger
-	metrics      layer.Metrics
-	datasets     map[string]*SampleDataset
+	config   *layer.Config
+	logger   layer.Logger
+	metrics  layer.Metrics
+	datasets map[string]*SampleDataset
 }
 
 func (dl *SampleDataLayer) GetDataset(dataset string) layer.Dataset {
@@ -64,8 +65,8 @@ func (dl *SampleDataLayer) Stop(_ context.Context) error { return nil }
 
 // NewSampleDataLayer is a factory function that creates a new instance of the sample data layer
 // In this example we use it to populate the sample dataset with some data
-func NewSampleDataLayer(conf *layer.SystemConfig, logger layer.Logger, metrics layer.Metrics) (layer.DataLayerService, error) {
-	sampleDataLayer := &SampleDataLayer{systemConfig: conf, logger: logger, metrics: metrics}
+func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.Metrics) (layer.DataLayerService, error) {
+	sampleDataLayer := &SampleDataLayer{config: conf, logger: logger, metrics: metrics}
 
 	// initialize the datasets
 	sampleDataLayer.datasets = make(map[string]*SampleDataset)
@@ -85,15 +86,16 @@ func NewSampleDataLayer(conf *layer.SystemConfig, logger layer.Logger, metrics l
 		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
 	}
 	logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
+	sampleDataLayer.UpdateConfiguration(conf)
 	return sampleDataLayer, nil
 }
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(datasetDefinitions []*layer.DatasetDefinition) error {
+func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) error {
 	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
-		for _, dsd := range datasetDefinitions {
+		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
 				v.mappings = dsd.Mappings
 			}

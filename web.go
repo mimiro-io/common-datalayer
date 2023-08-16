@@ -124,7 +124,7 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 }
 
 func (ws *dataLayerWebService) Start() error {
-	port := ws.config.SystemConfig.HttpPort()
+	port := ws.config.ApplicationConfig.HttpPort()
 	ws.logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)

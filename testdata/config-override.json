@@ -1,1 +1,6 @@
-{}
+{
+  "source_config": {
+    "source_type": "s3",
+    "source_path": "s3://my-bucket/my-path"
+  }
+}

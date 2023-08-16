@@ -3,6 +3,8 @@ package common_datalayer
 import (
 	"log/slog"
 	"os"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -42,15 +44,14 @@ func (sm StatsdMetrics) Gauge(name string, value float64, tags []string, rate in
 
 func newMetrics(conf *Config) (Metrics, error) {
 	var clientInt statsd.ClientInterface
-	if conf.SystemConfig.StatsdEnabled() {
-		client, err := statsd.New(conf.SystemConfig.StatsdAgentAddress())
+	if conf.ApplicationConfig.StatsdEnabled() {
+		client, err := statsd.New(conf.ApplicationConfig.StatsdAgentAddress(),
+			statsd.WithNamespace(conf.ApplicationConfig.ServiceName()),
+			statsd.WithTags([]string{"application:" + conf.ApplicationConfig.ServiceName()}))
 		if err != nil {
 			return nil, err
 		}
-		client, err = statsd.CloneWithExtraOptions(client, statsd.WithTags([]string{"application:" + conf.SystemConfig.ServiceName()}))
-		if err != nil {
-			return nil, err
-		}
+
 		clientInt = client
 	} else {
 		clientInt = &statsd.NoOpClient{}
@@ -83,9 +84,41 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug(message, args...)
 }
 
-func newLogger() Logger {
-	outputHandler := slog.NewJSONHandler(os.Stdout, nil)
-	log := slog.New(outputHandler)
+func newLogger(conf *Config) Logger {
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+		// traverse call stack to find the first non-log/slog function and use that as the source
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == "source" {
+				var pcs = make([]uintptr, 10)
+				runtime.Callers(2, pcs)
+				fs := runtime.CallersFrames(pcs)
+
+				f, more := fs.Next()
+				for more {
+					if strings.HasPrefix(f.Function, "log/slog") || strings.Contains(f.Function, "(*logger).") {
+						f, more = fs.Next()
+						continue
+					}
+					a.Value = slog.AnyValue(&slog.Source{
+						Function: f.Function,
+						File:     f.File,
+						Line:     f.Line,
+					})
+					break
+				}
+			}
+			return a
+		},
+	}
+	var outputHandler slog.Handler = slog.NewJSONHandler(os.Stdout, opts)
+	if conf.ApplicationConfig.Environment() == "local" {
+		outputHandler = slog.NewTextHandler(os.Stdout, opts)
+	}
+	log := slog.New(outputHandler).With(
+		"go.version", runtime.Version(),
+		"service", conf.ApplicationConfig.ServiceName())
 	//log = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	return &logger{log}
 }

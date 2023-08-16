@@ -2,7 +2,7 @@ package common_datalayer
 
 type DataLayerService interface {
 	Stoppable
-	Initialization
+	ConfigUpdateListener
 	GetDataset(dataset string) Dataset
 	ListDatasetNames() []string
 }

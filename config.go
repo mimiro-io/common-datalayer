@@ -6,78 +6,64 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 )
 
 var requiredProperties = []string{"port", "service_name"}
 
-// the system we are a layer for
-type SystemConfig struct {
-	Properties map[string]any
+type SystemConfig map[string]any
+type ApplicationConfig map[string]any
+type DatasetDefinition struct {
+	DatasetName  string                   `json:"dataset_name"`
+	SourceConfig map[string]any           `json:"source_config"`
+	Mappings     []*EntityPropertyMapping `json:"mappings"`
 }
 
-func (c *SystemConfig) UnmarshalJSON(data []byte) error {
+type EntityPropertyMapping struct {
+	// hang on to the raw config as it allows for local extensions
+	Raw             map[string]any
+	EntityProperty  string `json:"entity_property"`
+	Property        string `json:"property"`
+	Datatype        string `json:"datatype"`
+	IsReference     bool   `json:"is_reference"`
+	UrlValuePattern string `json:"url_value_pattern"`
+	IsIdentity      bool   `json:"is_identity"`
+}
+
+type Config struct {
+	ApplicationConfig  ApplicationConfig    `json:"application_configuration"`
+	SystemConfig       SystemConfig         `json:"system_configuration"`
+	DatasetDefinitions []*DatasetDefinition `json:"dataset_definitions"`
+}
+
+func (epm *EntityPropertyMapping) UnmarshalJSON(data []byte) error {
 	var raw map[string]any
 	err := json.Unmarshal(data, &raw)
 	if err != nil {
 		return err
 	}
-	c.Properties = raw
+
+	//err = json.Unmarshal(data, epm)
+	epm.Raw = raw
+	//epm.EntityProperty = raw["entity_property"].(string)
+	//epm.Property = raw["property"].(string)
+	//epm.Datatype = raw["datatype"].(string)
+	//epm.IsReference = raw["is_reference"].(bool)
+	//epm.UrlValuePattern = raw["url_value_pattern"].(string)
+	//epm.IsIdentity = raw["is_identity"].(bool)
 	return nil
-}
-
-type AuthConfig struct {
-	ClientId     string
-	ClientSecret string
-	Endpoint     string
-	Audience     string
-	GrantType    string
-	Wellknown    string
-}
-
-type DatasetDefinition struct {
-	DatasetName  string
-	SourceConfig map[string]any
-	Mappings     []*EntityPropertyMapping
-}
-
-type EntityPropertyMapping struct {
-	// hang on to the raw config as it allows for local extensions
-	Raw map[string]any
-
-	EntityProperty  string
-	Property        string
-	Datatype        string
-	IsReference     bool
-	UrlValuePattern string
-	IsIdentity      bool
-}
-
-type Config struct {
-	SystemConfig       *SystemConfig        `json:"system_configuration"`
-	DatasetDefinitions []*DatasetDefinition `json:"dataset_definitions"`
 }
 
 /******************************************************************************/
 
 func (c SystemConfig) Verify() error {
 	for _, key := range requiredProperties {
-		if _, exists := c.Properties[key]; !exists {
+		if _, exists := c[key]; !exists {
 			return fmt.Errorf("required property %s is missing", key)
 		}
 	}
 	return nil
-}
-
-func (c SystemConfig) AuthConfig() AuthConfig {
-	return AuthConfig{
-		ClientId:     stringOr(c.Properties, "AUTH0_CLIENT_ID", ""),
-		ClientSecret: stringOr(c.Properties, "AUTH0_CLIENT_SECRET", ""),
-		Endpoint:     stringOr(c.Properties, "AUTH0_ENDPOINT", ""),
-		Audience:     stringOr(c.Properties, "AUTH0_AUDIENCE", ""),
-		GrantType:    stringOr(c.Properties, "AUTH0_GRANT_TYPE", "client_credentials"),
-		Wellknown:    stringOr(c.Properties, "TOKEN_WELL_KNOWN", ""),
-	}
 }
 
 func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
@@ -89,16 +75,20 @@ func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
 	return nil
 }
 
+func (c *Config) equals(conf *Config) bool {
+	return reflect.DeepEqual(c, conf)
+}
+
 func newConfig() *Config {
 	res := &Config{}
-	res.SystemConfig = &SystemConfig{}
-	res.SystemConfig.Properties = make(map[string]any)
+	res.SystemConfig = make(SystemConfig)
+	res.ApplicationConfig = make(ApplicationConfig)
 	res.DatasetDefinitions = make([]*DatasetDefinition, 0)
 	return res
 }
 
-type Initialization interface {
-	Initialize(datasetDefinitions []*DatasetDefinition) error
+type ConfigUpdateListener interface {
+	UpdateConfiguration(config *Config) error
 }
 
 func readConfig(data io.Reader) (*Config, error) {
@@ -109,14 +99,25 @@ func readConfig(data io.Reader) (*Config, error) {
 		return nil, err
 	}
 	err = json.Unmarshal(s, config)
+	lowerKeys(config.SystemConfig)
+	for _, def := range config.DatasetDefinitions {
+		lowerKeys(def.SourceConfig)
+		for _, mapping := range def.Mappings {
+			lowerKeys(mapping.Raw)
+		}
+	}
 	return config, nil
+}
+
+func lowerKeys(properties map[string]any) {
+	for key, value := range properties {
+		delete(properties, key)
+		properties[strings.ToLower(key)] = value
+	}
 }
 
 func loadConfig(args []string) (*Config, error) {
 	c := newConfig()
-	// set some defaults
-	c.SystemConfig.Properties["port"] = "8080"
-	c.SystemConfig.Properties["service_name"] = "UNKNOWN_SERVICE"
 
 	for _, arg := range args {
 		var reader io.Reader
@@ -151,18 +152,24 @@ func addEnvOverrides(c *Config) {
 	val := func(name string) {
 		val, found := os.LookupEnv(name)
 		if found {
-			c.SystemConfig.Properties[strings.ToLower(name)] = val
+			c.ApplicationConfig[strings.ToLower(name)] = val
 		}
 	}
 	val("PORT")
-	val("ENVIRONMENT")
+	val("ENV")
+	val("CONFIG_REFRESH_INTERVAL")
+	val("SERVICE_NAME")
 	val("STATSD_ENABLED")
 	val("STATSD_AGENT_ADDRESS")
+	val("LOG_LEVEL")
 }
 
 func addConfig(c *Config, config *Config) {
-	for key, value := range config.SystemConfig.Properties {
-		c.SystemConfig.Properties[key] = value
+	for key, value := range config.SystemConfig {
+		c.SystemConfig[key] = value
+	}
+	for key, value := range config.ApplicationConfig {
+		c.ApplicationConfig[key] = value
 	}
 	for _, def := range config.DatasetDefinitions {
 		var exists bool
@@ -198,19 +205,23 @@ func (d DatasetDefinition) StripProps() bool {
 	return boolOr(d.SourceConfig, "stripProps", false)
 }
 
-func (c SystemConfig) HttpPort() string {
-	return stringOr(c.Properties, "port", "8080")
+func (c ApplicationConfig) HttpPort() string {
+	return stringOr(c, "port", "8080")
 }
 
-func (c SystemConfig) ServiceName() string {
-	return stringOr(c.Properties, "service_name", "UNKNOWN_SERVICE")
+func (c ApplicationConfig) ServiceName() string {
+	return stringOr(c, "service_name", "UNKNOWN_SERVICE")
 }
-func (c SystemConfig) StatsdEnabled() bool {
-	return boolOr(c.Properties, "statsd_enabled", false)
+func (c ApplicationConfig) StatsdEnabled() bool {
+	return boolOr(c, "statsd_enabled", false)
 }
 
-func (c SystemConfig) StatsdAgentAddress() string {
-	return stringOr(c.Properties, "statsd_agent_address", "localhost:8125")
+func (c ApplicationConfig) StatsdAgentAddress() string {
+	return stringOr(c, "statsd_agent_address", "localhost:8125")
+}
+
+func (c ApplicationConfig) Environment() string {
+	return stringOr(c, "env", "dev")
 }
 
 func stringOr(configMap map[string]any, key, defaultValue string) string {
