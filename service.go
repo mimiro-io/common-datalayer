@@ -25,29 +25,28 @@ type Service struct {
 	logger     Logger
 }
 
-func (s *Service) Stop() {
+func (s *Service) Stop() error {
 	ctx := context.Background()
 	for _, stoppable := range s.stoppables {
-		stoppable.Stop(ctx)
+		err := stoppable.Stop(ctx)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-// StartService call this from main to get things started
-func StartService(
-	args []string,
-	newLayerService func(core *CoreService) (DataLayerService, error),
-	enrichConfig func(args []string, config *Config) error,
-) {
-	s := CreateService(args, newLayerService, enrichConfig)
+func (s *Service) AndWait() error {
 	// handle shutdown, this call blocks and keeps the application running
 	waitForStop(s.logger, s.stoppables...)
+	return nil
 }
 
-func CreateService(
-	args []string,
-	newLayerService func(core *CoreService) (DataLayerService, error),
-	enrichConfig func(args []string, config *Config) error,
-) Service {
+func Start(
+	newLayerService func(logger Logger, metrics Metrics) (DataLayerService, error),
+	enrichConfig func(config *Config) error,
+	args ...string,
+) *Service {
 	// create core layer service
 	// read config
 	config, err := loadConfig(args)
@@ -60,13 +59,13 @@ func CreateService(
 	}
 
 	// enrich config specific for layer
-	err = enrichConfig(args, config)
+	err = enrichConfig(config)
 
 	if err != nil {
 		panic(err)
 	}
-	// initialise logger
-	logger := newLogger()
+	// initialise l
+	l := newLogger()
 
 	metrics, err := newMetrics(config)
 	if err != nil {
@@ -75,16 +74,16 @@ func CreateService(
 
 	cs := &CoreService{
 		Config:  config,
-		Logger:  logger,
+		Logger:  l,
 		Metrics: metrics,
 	}
 
-	layerService, err := newLayerService(cs)
+	layerService, err := newLayerService(cs.Logger, cs.Metrics)
 	if err != nil {
 		panic(err)
 	}
 
-	err = layerService.Initialize(config, logger)
+	err = layerService.Initialize(config)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +100,9 @@ func CreateService(
 	if err != nil {
 		panic(err)
 	}
-	return Service{stoppables: []Stoppable{layerService, webService}, logger: logger}
+	return &Service{
+		stoppables: []Stoppable{layerService, webService},
+		logger:     l}
 }
 
 // waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).

@@ -1,10 +1,10 @@
 package main
 
-import common_datalayer "github.com/mimiro-io/common-datalayer"
+import layer "github.com/mimiro-io/common-datalayer"
 
 // main function
 func main() {
-	args := []string{"config.json"}
+	//args := []string{"config.json"}
 
-	common_datalayer.StartService(args, NewSampleDataLayer, EnrichConfig)
+	_ = layer.Start(NewSampleDataLayer, EnrichConfig).AndWait()
 }

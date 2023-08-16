@@ -9,7 +9,7 @@ import (
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
-func EnrichConfig(args []string, config *layer.Config) error {
+func EnrichConfig(config *layer.Config) error {
 	config.DatasetDefinitions = append(config.DatasetDefinitions, &layer.DatasetDefinition{
 		DatasetName:  "sample",
 		SourceConfig: map[string]any{"stripProps": "true"},
@@ -31,73 +31,12 @@ func EnrichConfig(args []string, config *layer.Config) error {
 
 /*********************************************************************************************************************/
 
-// DataObject is the row/item type for the sample data layer. it implements the Item interface
-// In addition to the Item interface, it also has a dedicated ID field and AsBytes,
-// which is used to serialize the item for this specific layer
-type DataObject struct {
-	ID    string
-	Props map[string]any
-}
-
-func (d *DataObject) GetRaw() map[string]interface{} {
-	if d == nil {
-		return nil
-	}
-	return d.Props
-}
-func (d *DataObject) PutRaw(raw map[string]interface{}) {
-	d.Props = raw
-	for k, v := range raw {
-		if k == "ID" {
-			d.ID = v.(string)
-		}
-	}
-}
-
-func (d *DataObject) GetValue(name string) interface{} {
-	if name == "ID" {
-		return d.ID
-	} else {
-		return d.Props[name]
-	}
-}
-
-func (d *DataObject) SetValue(name string, value interface{}) {
-	if name == "ID" {
-		d.ID = value.(string)
-	} else {
-		d.Props[name] = value.(string)
-	}
-}
-
-func (d *DataObject) AsBytes() []byte {
-	b, _ := json.Marshal(d)
-	return b
-}
-
-/*********************************************************************************************************************/
-
 // SampleDataLayer is a sample implementation of the DataLayer interface
 type SampleDataLayer struct {
 	config   *layer.Config
 	logger   layer.Logger
 	metrics  layer.Metrics
 	datasets map[string]*SampleDataset
-}
-
-func (dl *SampleDataLayer) ItemFactory() func(item *layer.DataItem) *DataObject {
-	return func(item *layer.DataItem) *DataObject {
-		res := &DataObject{}
-		res.Props = make(map[string]any)
-		for k, v := range item.GetRaw() {
-			if k == "ID" {
-				res.ID = v.(string)
-				continue
-			}
-			res.Props[k] = v
-		}
-		return res
-	}
 }
 
 func (dl *SampleDataLayer) GetDataset(dataset string) layer.Dataset {
@@ -124,7 +63,7 @@ func (dl *SampleDataLayer) Stop(_ context.Context) error { return nil }
 
 // NewSampleDataLayer is a factory function that creates a new instance of the sample data layer
 // In this example we use it to populate the sample dataset with some data
-func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error) {
+func NewSampleDataLayer(logger layer.Logger, metrics layer.Metrics) (layer.DataLayerService, error) {
 	sampleDataLayer := &SampleDataLayer{}
 
 	// initialize the datasets
@@ -149,7 +88,7 @@ func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error)
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger) error {
+func (dl *SampleDataLayer) Initialize(config *layer.Config) error {
 	dl.config = config
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
@@ -158,7 +97,6 @@ func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger)
 			}
 		}
 	}
-	dl.logger = logger
 	return nil
 }
 
@@ -173,7 +111,8 @@ type SampleDataset struct {
 
 func (ds *SampleDataset) WriteItem(item layer.Item) error {
 	do := &DataObject{}
-	do.PutRaw(item.GetRaw())
+	do.ID = item.GetValue("ID").(string)
+	do.Props = item.GetRaw()
 	ds.data = append(ds.data, do.AsBytes())
 	return nil
 }
@@ -216,6 +155,21 @@ func (ds *SampleDataset) Description() map[string]interface{} {
 
 /*********************************************************************************************************************/
 
+// DataObject is the row/item type for the sample data layer. it implements the Item interface
+// In addition to the Item interface, it also has a dedicated ID field and AsBytes,
+// which is used to serialize the item for this specific layer
+type DataObject struct {
+	ID    string
+	Props map[string]any
+}
+
+func (d *DataObject) AsBytes() []byte {
+	b, _ := json.Marshal(d)
+	return b
+}
+
+/*********************************************************************************************************************/
+
 // DataObjectIterator is a sample implementation of the ItemIterator interface
 // This is the glue between the data objects and the entity mapping
 type DataObjectIterator struct {
@@ -251,6 +205,8 @@ func (doi *DataObjectIterator) Next() layer.Item {
 	if err != nil {
 		panic(err)
 	}
-	res := &obj
+	res := &layer.DataItem{}
+	res.PutRaw(obj.Props)
+	res.SetValue("ID", obj.ID)
 	return res
 }

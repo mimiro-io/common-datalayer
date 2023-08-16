@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewSampleDataLayer(t *testing.T) {
-	service := common_datalayer.CreateService([]string{"config.json"}, NewSampleDataLayer, EnrichConfig)
+	service := common_datalayer.Start(NewSampleDataLayer, EnrichConfig, "config.json")
 
 	// List datasets
 	resp, err := http.Get("http://localhost:8080/datasets")

@@ -100,7 +100,7 @@ func NewConfig() *Config {
 }
 
 type Initialization interface {
-	Initialize(config *Config, logger Logger) error
+	Initialize(config *Config) error
 }
 
 func ReadConfig(data io.Reader) *Config {
