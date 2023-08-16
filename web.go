@@ -15,7 +15,7 @@ import (
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
 
-type DataLayerWebService struct {
+type dataLayerWebService struct {
 	// service specific service core
 	datalayerService DataLayerService
 
@@ -23,14 +23,14 @@ type DataLayerWebService struct {
 	e    *echo.Echo
 }
 
-func NewDataLayerWebService(core *CoreService, dataLayerService DataLayerService) (*DataLayerWebService, error) {
+func newDataLayerWebService(core *CoreService, dataLayerService DataLayerService) (*dataLayerWebService, error) {
 
 	e := echo.New()
 	e.HideBanner = true
 
 	mw(core, e)
 
-	s := &DataLayerWebService{core: core, datalayerService: dataLayerService, e: e}
+	s := &dataLayerWebService{core: core, datalayerService: dataLayerService, e: e}
 
 	e.GET("/health", s.health)
 	e.POST("/datasets/:dataset/entities", s.postEntities)
@@ -121,8 +121,8 @@ func mw(core *CoreService, e *echo.Echo) {
 		})
 }
 
-func (ws *DataLayerWebService) Start() error {
-	port := ws.core.Config.SystemConfig.HttpPort()
+func (ws *dataLayerWebService) Start() error {
+	port := ws.core.config.SystemConfig.HttpPort()
 	ws.core.Logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)
@@ -131,16 +131,16 @@ func (ws *DataLayerWebService) Start() error {
 	return nil
 }
 
-func (ws *DataLayerWebService) Stop(ctx context.Context) error {
+func (ws *dataLayerWebService) Stop(ctx context.Context) error {
 	return ws.e.Shutdown(ctx)
 }
 
 // TODO mechanism to add health checks from layer code
-func (ws *DataLayerWebService) health(c echo.Context) error {
+func (ws *dataLayerWebService) health(c echo.Context) error {
 	return c.String(http.StatusOK, "UP")
 }
 
-func (ws *DataLayerWebService) postEntities(c echo.Context) error {
+func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.core.Logger.Info(fmt.Sprintf("POST to dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
@@ -148,11 +148,11 @@ func (ws *DataLayerWebService) postEntities(c echo.Context) error {
 		ws.core.Logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
-	mappings := ws.core.Config.GetDatasetDefinition(datasetName).Mappings
+	mappings := ws.core.config.GetDatasetDefinition(datasetName).Mappings
 	mapper := NewDefaultItemMapper(mappings)
 	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
 	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
-	if !ws.core.Config.GetDatasetDefinition(datasetName).StripProps() {
+	if !ws.core.config.GetDatasetDefinition(datasetName).StripProps() {
 		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
 		parser = parser.WithExpandURIs()
 	}
@@ -173,7 +173,7 @@ func (ws *DataLayerWebService) postEntities(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (ws *DataLayerWebService) getEntities(c echo.Context) error {
+func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.core.Logger.Info(fmt.Sprintf("GET entities for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
@@ -190,7 +190,7 @@ func (ws *DataLayerWebService) getEntities(c echo.Context) error {
 	return nil
 }
 
-func (ws *DataLayerWebService) getChanges(c echo.Context) error {
+func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.core.Logger.Info(fmt.Sprintf("GET changes for dataset %s", datasetName))
 	ds := ws.datalayerService.GetDataset(datasetName)
@@ -211,7 +211,7 @@ func (ws *DataLayerWebService) getChanges(c echo.Context) error {
 	return nil
 }
 
-func (ws *DataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
+func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
 	for {
 		entity := entityIterator.Next()
 		//fmt.Println(entity, entity == nil)
@@ -232,7 +232,7 @@ func (ws *DataLayerWebService) responseOut(c echo.Context, entityIterator Entity
 	return nil
 }
 
-func (ws *DataLayerWebService) listDatasets(c echo.Context) error {
+func (ws *dataLayerWebService) listDatasets(c echo.Context) error {
 	ws.core.Logger.Info("listing datasets")
 	b, err := json.Marshal(ws.datalayerService.ListDatasetNames())
 	if err != nil {

@@ -4,7 +4,10 @@ import layer "github.com/mimiro-io/common-datalayer"
 
 // main function
 func main() {
-	//args := []string{"config.json"}
-
-	_ = layer.Start(NewSampleDataLayer, EnrichConfig).AndWait()
+	layer.Start(
+		NewSampleDataLayer,
+		//layer.ConfigFileOption("local-config.json"),
+		//layer.ConfigFileOption("override-config.json"),
+		layer.EnrichConfigOption(EnrichConfig),
+	).AndWait()
 }

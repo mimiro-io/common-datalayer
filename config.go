@@ -71,9 +71,9 @@ func (c SystemConfig) AuthConfig() AuthConfig {
 	}
 }
 
-func (c *Config) Load(args []string) error {
+func (c *Config) load(args []string) error {
 	for _, arg := range args {
-		// TODO each arg is a file location? Load and merge?
+		// TODO each arg is a file location? load and merge?
 		println("not loading ", arg)
 		// for now, just add some values
 		c.SystemConfig.Properties["PORT"] = "8080"
@@ -91,7 +91,7 @@ func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
 	return nil
 }
 
-func NewConfig() *Config {
+func newConfig() *Config {
 	res := &Config{}
 	res.SystemConfig = &SystemConfig{}
 	res.SystemConfig.Properties = make(map[string]any)
@@ -100,11 +100,20 @@ func NewConfig() *Config {
 }
 
 type Initialization interface {
-	Initialize(config *Config) error
+	Initialize(datasetDefinitions []*DatasetDefinition) error
 }
 
-func ReadConfig(data io.Reader) *Config {
+func readConfig(data io.Reader) *Config {
 	return nil
+}
+
+func loadConfig(args []string) (*Config, error) {
+	config := newConfig()
+	err := config.load(args)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
 }
 
 /******************************************************************************/

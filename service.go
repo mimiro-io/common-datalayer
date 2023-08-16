@@ -8,15 +8,6 @@ import (
 	"syscall"
 )
 
-func loadConfig(args []string) (*Config, error) {
-	config := NewConfig()
-	err := config.Load(args)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
 type Stoppable interface {
 	Stop(ctx context.Context) error
 }
@@ -42,13 +33,34 @@ func (s *Service) AndWait() error {
 	return nil
 }
 
+type StartOptions struct {
+	enrichConfig func(config *Config) error
+	configFiles  []string
+}
+type Option func(*StartOptions)
+
+func EnrichConfigOption(enrichConfig func(config *Config) error) Option {
+	return func(o *StartOptions) {
+		o.enrichConfig = enrichConfig
+	}
+}
+func ConfigFileOption(configFile string) Option {
+	return func(o *StartOptions) {
+		o.configFiles = append(o.configFiles, configFile)
+	}
+}
 func Start(
-	newLayerService func(logger Logger, metrics Metrics) (DataLayerService, error),
-	enrichConfig func(config *Config) error,
-	args ...string,
+	newLayerService func(core *CoreService) (DataLayerService, error),
+	options ...Option,
 ) *Service {
 	// create core layer service
 	// read config
+	so := &StartOptions{}
+	for _, option := range options {
+		option(so)
+	}
+	args := []string{os.Getenv("DATALAYER_CONFIG_PATH")}
+	args = append(args, so.configFiles...)
 	config, err := loadConfig(args)
 	if err != nil {
 		panic(err)
@@ -59,11 +71,13 @@ func Start(
 	}
 
 	// enrich config specific for layer
-	err = enrichConfig(config)
-
-	if err != nil {
-		panic(err)
+	if so.enrichConfig != nil {
+		err = so.enrichConfig(config)
+		if err != nil {
+			panic(err)
+		}
 	}
+
 	// initialise l
 	l := newLogger()
 
@@ -73,24 +87,24 @@ func Start(
 	}
 
 	cs := &CoreService{
-		Config:  config,
+		config:  config,
 		Logger:  l,
 		Metrics: metrics,
 	}
 
-	layerService, err := newLayerService(cs.Logger, cs.Metrics)
+	layerService, err := newLayerService(cs)
 	if err != nil {
 		panic(err)
 	}
 
-	err = layerService.Initialize(config)
+	err = layerService.Initialize(config.DatasetDefinitions)
 	if err != nil {
 		panic(err)
 	}
 	// TODO: hook up config updater which calls layerService.Initialize on change
 
 	// create web service hook up with the service core
-	webService, err := NewDataLayerWebService(cs, layerService)
+	webService, err := newDataLayerWebService(cs, layerService)
 	if err != nil {
 		panic(err)
 	}

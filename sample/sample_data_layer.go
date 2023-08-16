@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	layer "github.com/mimiro-io/common-datalayer"
@@ -33,10 +34,10 @@ func EnrichConfig(config *layer.Config) error {
 
 // SampleDataLayer is a sample implementation of the DataLayer interface
 type SampleDataLayer struct {
-	config   *layer.Config
-	logger   layer.Logger
-	metrics  layer.Metrics
-	datasets map[string]*SampleDataset
+	systemConfig *layer.SystemConfig
+	logger       layer.Logger
+	metrics      layer.Metrics
+	datasets     map[string]*SampleDataset
 }
 
 func (dl *SampleDataLayer) GetDataset(dataset string) layer.Dataset {
@@ -63,8 +64,8 @@ func (dl *SampleDataLayer) Stop(_ context.Context) error { return nil }
 
 // NewSampleDataLayer is a factory function that creates a new instance of the sample data layer
 // In this example we use it to populate the sample dataset with some data
-func NewSampleDataLayer(logger layer.Logger, metrics layer.Metrics) (layer.DataLayerService, error) {
-	sampleDataLayer := &SampleDataLayer{}
+func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error) {
+	sampleDataLayer := &SampleDataLayer{systemConfig: core.SystemConfig(), logger: core.Logger, metrics: core.Metrics}
 
 	// initialize the datasets
 	sampleDataLayer.datasets = make(map[string]*SampleDataset)
@@ -83,15 +84,16 @@ func NewSampleDataLayer(logger layer.Logger, metrics layer.Metrics) (layer.DataL
 		// add the data object to the sample dataset
 		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
 	}
+	core.Logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
 	return sampleDataLayer, nil
 }
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(config *layer.Config) error {
-	dl.config = config
+func (dl *SampleDataLayer) Initialize(datasetDefinitions []*layer.DatasetDefinition) error {
+	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
-		for _, dsd := range config.DatasetDefinitions {
+		for _, dsd := range datasetDefinitions {
 			if k == dsd.DatasetName {
 				v.mappings = dsd.Mappings
 			}

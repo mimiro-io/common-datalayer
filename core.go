@@ -9,9 +9,13 @@ import (
 )
 
 type CoreService struct {
-	Config  *Config
+	config  *Config
 	Logger  Logger
 	Metrics Metrics
+}
+
+func (c CoreService) SystemConfig() *SystemConfig {
+	return c.config.SystemConfig
 }
 
 type Metrics interface {
