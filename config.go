@@ -1,20 +1,29 @@
 package common_datalayer
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
 	"strings"
 )
 
-var requiredProperties = []string{"PORT", "SERVICE_NAME"}
-
-// server port etc
-type ApplicationConfig interface {
-}
+var requiredProperties = []string{"port", "service_name"}
 
 // the system we are a layer for
 type SystemConfig struct {
 	Properties map[string]any
+}
+
+func (c *SystemConfig) UnmarshalJSON(data []byte) error {
+	var raw map[string]any
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return err
+	}
+	c.Properties = raw
+	return nil
 }
 
 type AuthConfig struct {
@@ -45,8 +54,8 @@ type EntityPropertyMapping struct {
 }
 
 type Config struct {
-	SystemConfig       *SystemConfig
-	DatasetDefinitions []*DatasetDefinition
+	SystemConfig       *SystemConfig        `json:"system_configuration"`
+	DatasetDefinitions []*DatasetDefinition `json:"dataset_definitions"`
 }
 
 /******************************************************************************/
@@ -71,17 +80,6 @@ func (c SystemConfig) AuthConfig() AuthConfig {
 	}
 }
 
-func (c *Config) load(args []string) error {
-	for _, arg := range args {
-		// TODO each arg is a file location? load and merge?
-		println("not loading ", arg)
-		// for now, just add some values
-		c.SystemConfig.Properties["PORT"] = "8080"
-		c.SystemConfig.Properties["SERVICE_NAME"] = "UNKNOWN_SERVICE"
-	}
-	return nil
-}
-
 func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
 	for _, def := range c.DatasetDefinitions {
 		if def.DatasetName == dataset {
@@ -103,17 +101,94 @@ type Initialization interface {
 	Initialize(datasetDefinitions []*DatasetDefinition) error
 }
 
-func readConfig(data io.Reader) *Config {
-	return nil
-}
-
-func loadConfig(args []string) (*Config, error) {
+func readConfig(data io.Reader) (*Config, error) {
 	config := newConfig()
-	err := config.load(args)
+	s, err := io.ReadAll(data)
+	//err := json.NewDecoder(data).Decode(config)
 	if err != nil {
 		return nil, err
 	}
+	err = json.Unmarshal(s, config)
 	return config, nil
+}
+
+func loadConfig(args []string) (*Config, error) {
+	c := newConfig()
+	// set some defaults
+	c.SystemConfig.Properties["port"] = "8080"
+	c.SystemConfig.Properties["service_name"] = "UNKNOWN_SERVICE"
+
+	for _, arg := range args {
+		var reader io.Reader
+		if strings.HasPrefix(arg, "http") {
+			// load from url
+			response, err := http.Get(arg)
+			if err != nil {
+				return nil, err
+			}
+			reader = response.Body
+		} else {
+			// load from file
+			var err error
+			reader, err = os.Open(arg)
+			if err != nil {
+				return nil, err
+			}
+		}
+		config, err := readConfig(reader)
+		if err != nil {
+			return nil, err
+		}
+		addConfig(c, config)
+	}
+
+	addEnvOverrides(c)
+
+	return c, nil
+}
+
+func addEnvOverrides(c *Config) {
+	val := func(name string) {
+		val, found := os.LookupEnv(name)
+		if found {
+			c.SystemConfig.Properties[strings.ToLower(name)] = val
+		}
+	}
+	val("PORT")
+	val("ENVIRONMENT")
+	val("STATSD_ENABLED")
+	val("STATSD_AGENT_ADDRESS")
+}
+
+func addConfig(c *Config, config *Config) {
+	for key, value := range config.SystemConfig.Properties {
+		c.SystemConfig.Properties[key] = value
+	}
+	for _, def := range config.DatasetDefinitions {
+		var exists bool
+		for _, existingDef := range c.DatasetDefinitions {
+			if existingDef.DatasetName == def.DatasetName {
+				exists = true
+				for _, mapping := range def.Mappings {
+					var mappingExists bool
+					for _, existingMapping := range existingDef.Mappings {
+						if existingMapping.EntityProperty == mapping.EntityProperty {
+							mappingExists = true
+							break
+						}
+					}
+					if !mappingExists {
+						existingDef.Mappings = append(existingDef.Mappings, mapping)
+					}
+				}
+			}
+			break
+		}
+		if !exists {
+			c.DatasetDefinitions = append(c.DatasetDefinitions, def)
+		}
+
+	}
 }
 
 /******************************************************************************/
@@ -124,18 +199,18 @@ func (d DatasetDefinition) StripProps() bool {
 }
 
 func (c SystemConfig) HttpPort() string {
-	return stringOr(c.Properties, "PORT", "8080")
+	return stringOr(c.Properties, "port", "8080")
 }
 
 func (c SystemConfig) ServiceName() string {
-	return stringOr(c.Properties, "SERVICE_NAME", "UNKNOWN_SERVICE")
+	return stringOr(c.Properties, "service_name", "UNKNOWN_SERVICE")
 }
 func (c SystemConfig) StatsdEnabled() bool {
-	return boolOr(c.Properties, "STATSD_ENABLED", false)
+	return boolOr(c.Properties, "statsd_enabled", false)
 }
 
 func (c SystemConfig) StatsdAgentAddress() string {
-	return stringOr(c.Properties, "STATSD_AGENT_ADDRESS", "localhost:8125")
+	return stringOr(c.Properties, "statsd_agent_address", "localhost:8125")
 }
 
 func stringOr(configMap map[string]any, key, defaultValue string) string {

@@ -2,7 +2,8 @@
   "system_configuration" : {
     "connection" : "",
     "port" : "8080",
-    "environment" : "dev"
+    "environment" : "dev",
+    "service_name" : "sample"
   },
   "dataset_definitions" : [
     {
