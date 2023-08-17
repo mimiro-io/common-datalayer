@@ -145,7 +145,11 @@ func (ws *dataLayerWebService) health(c echo.Context) error {
 func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.logger.Info(fmt.Sprintf("POST to dataset %s", datasetName))
-	ds := ws.datalayerService.GetDataset(datasetName)
+	ds, err := ws.datalayerService.Dataset(datasetName)
+	if err != nil {
+		ws.logger.Warn(err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "could not find dataset "+datasetName)
+	}
 	if ds == nil {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
@@ -158,16 +162,16 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
 		parser = parser.WithExpandURIs()
 	}
-	err := parser.Parse(c.Request().Body, func(entity *egdm.Entity) error {
+	err2 := parser.Parse(c.Request().Body, func(entity *egdm.Entity) error {
 		item := mapper.EntityToItem(entity)
-		err2 := ds.WriteItem(item)
+		err2 := ds.Write(item)
 		if err2 != nil {
-			return err2
+			return err2.Underlying()
 		}
 
 		return nil
 	}, nil)
-	if err != nil {
+	if err2 != nil {
 		ws.logger.Warn(err.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "could not parse the json payload")
 	}
@@ -178,14 +182,14 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.logger.Info(fmt.Sprintf("GET entities for dataset %s", datasetName))
-	ds := ws.datalayerService.GetDataset(datasetName)
-	if ds == nil {
-		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
-		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
-	}
-	entityIterator, err := ws.datalayerService.GetDataset(datasetName).GetEntities("", 10000)
-	err = ws.responseOut(c, entityIterator)
+	ds, err := ws.datalayerService.Dataset(datasetName)
 	if err != nil {
+		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
+		return err.toHTTPError()
+	}
+	entityIterator, err := ds.Entities("", 10000)
+	err2 := ws.responseOut(c, entityIterator)
+	if err2 != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -195,18 +199,17 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.logger.Info(fmt.Sprintf("GET changes for dataset %s", datasetName))
-	ds := ws.datalayerService.GetDataset(datasetName)
-	if ds == nil {
+	ds, err := ws.datalayerService.Dataset(datasetName)
+	if err != nil {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
-		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
+		return err.toHTTPError()
 	}
-
-	entityIterator, err := ws.datalayerService.GetDataset(datasetName).GetChanges("", 10000, false)
+	entityIterator, err := ds.Changes("", 10000, false)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	err = ws.responseOut(c, entityIterator)
-	if err != nil {
+	err2 := ws.responseOut(c, entityIterator)
+	if err2 != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -236,7 +239,7 @@ func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator Entity
 
 func (ws *dataLayerWebService) listDatasets(c echo.Context) error {
 	ws.logger.Info("listing datasets")
-	b, err := json.Marshal(ws.datalayerService.ListDatasetNames())
+	b, err := json.Marshal(ws.datalayerService.DatasetNames())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

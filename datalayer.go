@@ -1,19 +1,24 @@
 package common_datalayer
 
+import "context"
+
+type Stoppable interface {
+	Stop(ctx context.Context) error
+}
 type DataLayerService interface {
 	Stoppable
-	ConfigUpdateListener
-	GetDataset(dataset string) Dataset
-	ListDatasetNames() []string
+	UpdateConfiguration(config *Config) LayerError
+	Dataset(dataset string) (Dataset, LayerError)
+	DatasetNames() []string
 }
 
 type Dataset interface {
-	Description() map[string]interface{}
-	GetName() string
-	WriteItem(item Item) error
-	BeginFullSync() error
-	CompleteFullSync() error
-	CancelFullSync() error
-	GetChanges(since string, take int, latestOnly bool) (EntityIterator, error)
-	GetEntities(since string, take int) (EntityIterator, error)
+	MetaData() map[string]any
+	Name() string
+	Write(item Item) LayerError
+	BeginFullSync() LayerError
+	CompleteFullSync() LayerError
+	CancelFullSync() LayerError
+	Changes(since string, take int, latestOnly bool) (EntityIterator, LayerError)
+	Entities(since string, take int) (EntityIterator, LayerError)
 }

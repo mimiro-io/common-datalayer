@@ -10,10 +10,12 @@ import (
 	"github.com/DataDog/datadog-go/v5/statsd"
 )
 
+/******************************************************************************/
+
 type Metrics interface {
-	Incr(s string, tags []string, i int) error
-	Timing(s string, timed time.Duration, tags []string, i int) error
-	Gauge(s string, f float64, tags []string, i int) error
+	Incr(s string, tags []string, i int) LayerError
+	Timing(s string, timed time.Duration, tags []string, i int) LayerError
+	Gauge(s string, f float64, tags []string, i int) LayerError
 }
 
 type Logger interface {
@@ -30,16 +32,16 @@ type StatsdMetrics struct {
 	client statsd.ClientInterface
 }
 
-func (sm StatsdMetrics) Incr(name string, tags []string, rate int) error {
-	return sm.client.Incr(name, tags, float64(rate))
+func (sm StatsdMetrics) Incr(name string, tags []string, rate int) LayerError {
+	return Err(sm.client.Incr(name, tags, float64(rate)), LayerErrorInternal)
 }
 
-func (sm StatsdMetrics) Timing(name string, value time.Duration, tags []string, rate int) error {
-	return sm.client.Timing(name, value, tags, float64(rate))
+func (sm StatsdMetrics) Timing(name string, value time.Duration, tags []string, rate int) LayerError {
+	return Err(sm.client.Timing(name, value, tags, float64(rate)), LayerErrorInternal)
 }
 
-func (sm StatsdMetrics) Gauge(name string, value float64, tags []string, rate int) error {
-	return sm.client.Gauge(name, value, tags, float64(rate))
+func (sm StatsdMetrics) Gauge(name string, value float64, tags []string, rate int) LayerError {
+	return Err(sm.client.Gauge(name, value, tags, float64(rate)), LayerErrorInternal)
 }
 
 func newMetrics(conf *Config) (Metrics, error) {

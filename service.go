@@ -8,9 +8,6 @@ import (
 	"syscall"
 )
 
-type Stoppable interface {
-	Stop(ctx context.Context) error
-}
 type Service struct {
 	stoppables []Stoppable
 	logger     Logger

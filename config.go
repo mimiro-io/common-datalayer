@@ -2,15 +2,12 @@ package common_datalayer
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"reflect"
 	"strings"
 )
-
-var requiredProperties = []string{"port", "service_name"}
 
 type SystemConfig map[string]any
 type ApplicationConfig map[string]any
@@ -57,15 +54,6 @@ func (epm *EntityPropertyMapping) UnmarshalJSON(data []byte) error {
 
 /******************************************************************************/
 
-func (c SystemConfig) Verify() error {
-	for _, key := range requiredProperties {
-		if _, exists := c[key]; !exists {
-			return fmt.Errorf("required property %s is missing", key)
-		}
-	}
-	return nil
-}
-
 func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
 	for _, def := range c.DatasetDefinitions {
 		if def.DatasetName == dataset {
@@ -85,10 +73,6 @@ func newConfig() *Config {
 	res.ApplicationConfig = make(ApplicationConfig)
 	res.DatasetDefinitions = make([]*DatasetDefinition, 0)
 	return res
-}
-
-type ConfigUpdateListener interface {
-	UpdateConfiguration(config *Config) error
 }
 
 func readConfig(data io.Reader) (*Config, error) {

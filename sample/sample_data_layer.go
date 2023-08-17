@@ -41,15 +41,15 @@ type SampleDataLayer struct {
 	datasets map[string]*SampleDataset
 }
 
-func (dl *SampleDataLayer) GetDataset(dataset string) layer.Dataset {
+func (dl *SampleDataLayer) Dataset(dataset string) (layer.Dataset, layer.LayerError) {
 	ds, found := dl.datasets[dataset]
 	if found {
-		return ds
+		return ds, nil
 	}
-	return nil
+	return nil, layer.Errorf(layer.LayerErrorBadParameter, "dataset %s not found", dataset)
 }
 
-func (dl *SampleDataLayer) ListDatasetNames() []string {
+func (dl *SampleDataLayer) DatasetNames() []string {
 	// create a slice of strings to hold the dataset names
 	var datasetNames []string
 
@@ -72,7 +72,7 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 	sampleDataLayer.datasets = make(map[string]*SampleDataset)
 
 	// create a sample dataset
-	sampleDataLayer.datasets["sample"] = &SampleDataset{Name: "sample"}
+	sampleDataLayer.datasets["sample"] = &SampleDataset{dsName: "sample"}
 	// loop to create 20 objects
 	for i := 0; i < 20; i++ {
 		// create a data object
@@ -86,13 +86,16 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
 	}
 	logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
-	sampleDataLayer.UpdateConfiguration(conf)
+	err := sampleDataLayer.UpdateConfiguration(conf)
+	if err != nil {
+		return nil, err
+	}
 	return sampleDataLayer, nil
 }
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) error {
+func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.LayerError {
 	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
@@ -108,12 +111,12 @@ func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) error {
 
 // SampleDataset is a sample implementation of the Dataset interface, it provides a simple in-memory dataset in this case
 type SampleDataset struct {
-	Name     string
+	dsName   string
 	mappings []*layer.EntityPropertyMapping
 	data     [][]byte
 }
 
-func (ds *SampleDataset) WriteItem(item layer.Item) error {
+func (ds *SampleDataset) Write(item layer.Item) layer.LayerError {
 	do := &DataObject{}
 	do.ID = item.GetValue("ID").(string)
 	do.Props = item.GetRaw()
@@ -121,14 +124,14 @@ func (ds *SampleDataset) WriteItem(item layer.Item) error {
 	return nil
 }
 
-func (ds *SampleDataset) GetName() string {
-	return ds.Name
+func (ds *SampleDataset) Name() string {
+	return ds.dsName
 }
 
 // GetChanges returns an iterator over the changes since the given timestamp,
 // The implementation uses the provided MappingEntityIterator and a custom DataObjectIterator
 // to map the data objects to entities
-func (ds *SampleDataset) GetChanges(since string, take int, _ bool) (layer.EntityIterator, error) {
+func (ds *SampleDataset) Changes(since string, take int, _ bool) (layer.EntityIterator, layer.LayerError) {
 	data := ds.data
 	entityIterator := layer.NewMappingEntityIterator(
 		ds.mappings,
@@ -137,23 +140,23 @@ func (ds *SampleDataset) GetChanges(since string, take int, _ bool) (layer.Entit
 	return entityIterator, nil
 }
 
-func (ds *SampleDataset) GetEntities(since string, take int) (layer.EntityIterator, error) {
-	return ds.GetChanges(since, take, true)
+func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator, layer.LayerError) {
+	return ds.Changes(since, take, true)
 }
 
-func (ds *SampleDataset) BeginFullSync() error {
+func (ds *SampleDataset) BeginFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) CompleteFullSync() error {
+func (ds *SampleDataset) CompleteFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) CancelFullSync() error {
+func (ds *SampleDataset) CancelFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) Description() map[string]interface{} {
+func (ds *SampleDataset) MetaData() map[string]any {
 	return nil
 }
 
