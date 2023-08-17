@@ -154,11 +154,17 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
-	mappings := ws.config.GetDatasetDefinition(datasetName).Mappings
-	mapper := NewDefaultItemMapper(mappings)
+	definition := ws.config.GetDatasetDefinition(datasetName)
+	if definition == nil {
+		ws.logger.Error("could not find dataset definition " + datasetName)
+		return echo.NewHTTPError(http.StatusBadRequest, "could not find dataset definition "+datasetName)
+	}
+
+	mappings := definition.Mappings
+	mapper := NewDataItemMapper(mappings)
 	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
 	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
-	if !ws.config.GetDatasetDefinition(datasetName).StripProps() {
+	if !definition.StripProps() {
 		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
 		parser = parser.WithExpandURIs()
 	}

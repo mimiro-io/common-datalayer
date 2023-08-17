@@ -11,10 +11,10 @@ import (
 )
 
 func TestNewSampleDataLayer(t *testing.T) {
-	service := common_datalayer.Start(NewSampleDataLayer, common_datalayer.EnrichConfigOption(EnrichConfig))
+	service := common_datalayer.Start(NewSampleDataLayer, common_datalayer.ConfigFileOption("sample_config.json"))
 
 	// List datasets
-	resp, err := http.Get("http://localhost:8080/datasets")
+	resp, err := http.Get("http://localhost:21712/datasets")
 	fmt.Println("response: ", resp, err)
 	println()
 	content, _ := io.ReadAll(resp.Body)
@@ -26,12 +26,12 @@ func TestNewSampleDataLayer(t *testing.T) {
 		{"id": "@context", "namespaces": {"_": "http://sample/"}},
 		{"id": "187", "props": {"name": "John Doe"}}
 	]`)
-	resp, err = http.Post("http://localhost:8080/datasets/sample/entities", "application/json", reader)
+	resp, err = http.Post("http://localhost:21712/datasets/sample/entities", "application/json", reader)
 	fmt.Println("response: ", resp, err)
 	println()
 
 	// Get changes
-	resp, err = http.Get("http://localhost:8080/datasets/sample/changes")
+	resp, err = http.Get("http://localhost:21712/datasets/sample/changes")
 	fmt.Println("response: ", resp, err)
 	println()
 	content, _ = io.ReadAll(resp.Body)

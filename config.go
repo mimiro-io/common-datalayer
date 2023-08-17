@@ -13,7 +13,7 @@ type SystemConfig map[string]any
 type ApplicationConfig map[string]any
 type DatasetDefinition struct {
 	DatasetName  string                   `json:"dataset_name"`
-	SourceConfig map[string]any           `json:"source_config"`
+	SourceConfig map[string]any           `json:"source_configuration"`
 	Mappings     []*EntityPropertyMapping `json:"mappings"`
 }
 
@@ -41,14 +41,17 @@ func (epm *EntityPropertyMapping) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	//err = json.Unmarshal(data, epm)
 	epm.Raw = raw
-	//epm.EntityProperty = raw["entity_property"].(string)
-	//epm.Property = raw["property"].(string)
-	//epm.Datatype = raw["datatype"].(string)
-	//epm.IsReference = raw["is_reference"].(bool)
-	//epm.UrlValuePattern = raw["url_value_pattern"].(string)
-	//epm.IsIdentity = raw["is_identity"].(bool)
+	epm.EntityProperty = raw["entity_property"].(string)
+	epm.Property = raw["property"].(string)
+	if raw["datatype"] != nil {
+		epm.Datatype = raw["datatype"].(string)
+	}
+	epm.IsReference = raw["is_reference"] == true
+	if raw["url_value_pattern"] != nil {
+		epm.UrlValuePattern = raw["url_value_pattern"].(string)
+	}
+	epm.IsIdentity = raw["is_identity"] == true
 	return nil
 }
 
@@ -83,6 +86,9 @@ func readConfig(data io.Reader) (*Config, error) {
 		return nil, err
 	}
 	err = json.Unmarshal(s, config)
+	if err != nil {
+		return nil, err
+	}
 	lowerKeys(config.SystemConfig)
 	for _, def := range config.DatasetDefinitions {
 		lowerKeys(def.SourceConfig)
@@ -186,7 +192,7 @@ func addConfig(c *Config, config *Config) {
 // helpers
 
 func (d DatasetDefinition) StripProps() bool {
-	return boolOr(d.SourceConfig, "stripProps", false)
+	return boolOr(d.SourceConfig, "strip_props", false)
 }
 
 func (c ApplicationConfig) HttpPort() string {
@@ -220,6 +226,10 @@ func stringOr(configMap map[string]any, key, defaultValue string) string {
 func boolOr(configMap map[string]any, key string, defaultValue bool) bool {
 	val, exists := configMap[key]
 	if exists {
+		boolVal, ok := val.(bool)
+		if ok {
+			return boolVal
+		}
 		return strings.ToLower(val.(string)) == "true"
 	}
 	// default

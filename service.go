@@ -62,7 +62,6 @@ func Start(
 	args = append(args, so.configFiles...)
 	config, err := loadConfig(args)
 	if err != nil {
-
 		panic(err)
 	}
 
