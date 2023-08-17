@@ -78,11 +78,11 @@ func NewMappingEntityIterator(
 	}
 }
 
-type DefaultItemMapper struct {
+type dataItemMapper struct {
 	mappings []*EntityPropertyMapping
 }
 
-func (d DefaultItemMapper) EntityToItem(entity *egdm.Entity) Item {
+func (d dataItemMapper) EntityToItem(entity *egdm.Entity) Item {
 	defaultItem := &DataItem{raw: make(map[string]any)}
 	for _, mapping := range d.mappings {
 		if mapping.IsIdentity {
@@ -94,8 +94,8 @@ func (d DefaultItemMapper) EntityToItem(entity *egdm.Entity) Item {
 	return defaultItem
 }
 
-func NewDefaultItemMapper(mappings []*EntityPropertyMapping) EntityToItemMapper {
-	return &DefaultItemMapper{mappings: mappings}
+func NewDataItemMapper(mappings []*EntityPropertyMapping) EntityToItemMapper {
+	return &dataItemMapper{mappings: mappings}
 }
 
 type ItemToEntityMapper interface {
@@ -113,6 +113,9 @@ func (em *GenericEntityMapper) ItemToEntity(item Item) *egdm.Entity {
 	entity := egdm.NewEntity()
 	for _, mapping := range em.Mappings {
 		sourcePropertyValue := item.GetValue(mapping.Property)
+		if sourcePropertyValue == nil {
+			continue
+		}
 
 		if mapping.IsIdentity {
 			entity.ID = sourcePropertyValue.(string)

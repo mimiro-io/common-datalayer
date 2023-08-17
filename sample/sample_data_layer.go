@@ -11,22 +11,6 @@ import (
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
 func EnrichConfig(config *layer.Config) error {
-	config.DatasetDefinitions = append(config.DatasetDefinitions, &layer.DatasetDefinition{
-		DatasetName:  "sample",
-		SourceConfig: map[string]any{"stripProps": "true"},
-		Mappings: []*layer.EntityPropertyMapping{
-			{
-				EntityProperty:  "ID",
-				Property:        "ID",
-				UrlValuePattern: "http://sample/{id}",
-				IsIdentity:      true,
-			},
-			{
-				EntityProperty: "name",
-				Property:       "name",
-			},
-		},
-	})
 	//config.ApplicationConfig["env"] = "local"
 	return nil
 }
@@ -118,7 +102,9 @@ type SampleDataset struct {
 
 func (ds *SampleDataset) Write(item layer.Item) layer.LayerError {
 	do := &DataObject{}
-	do.ID = item.GetValue("ID").(string)
+	if item.GetValue("id") != nil {
+		do.ID = item.GetValue("id").(string)
+	}
 	do.Props = item.GetRaw()
 	ds.data = append(ds.data, do.AsBytes())
 	return nil
@@ -214,6 +200,6 @@ func (doi *DataObjectIterator) Next() layer.Item {
 	}
 	res := &layer.DataItem{}
 	res.PutRaw(obj.Props)
-	res.SetValue("ID", obj.ID)
+	res.SetValue("id", obj.ID)
 	return res
 }

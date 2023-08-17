@@ -1,0 +1,27 @@
+{
+  "application_configuration": {
+    "port": "21712",
+    "environment": "dev",
+    "service_name": "sample_service"
+  },
+  "dataset_definitions": [
+    {
+      "dataset_name": "sample",
+      "source_configuration": {
+        "strip_props": true
+      },
+      "mappings": [
+        {
+          "entity_property": "ID",
+          "property": "id",
+          "is_identity": true,
+          "url_value_pattern": "http://sample/{value}"
+        },
+        {
+          "entity_property": "name",
+          "property": "name"
+        }
+      ]
+    }
+  ]
+}

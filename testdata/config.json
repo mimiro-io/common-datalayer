@@ -9,7 +9,7 @@
   },
   "dataset_definitions" : [
     {
-      "name" : "sdb.animal",
+      "dataset_name" : "sdb.animal",
       "source_configuration" : {
         "table_name" : "animal",
         "query" : "select * from animal",
