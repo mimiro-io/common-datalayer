@@ -1,8 +1,11 @@
 {
   "system_configuration" : {
-    "connection" : "",
+    "connection" : "inmemory"
+  },
+  "application_configuration" : {
     "port" : "8080",
-    "environment" : "dev"
+    "environment" : "dev",
+    "service_name" : "sample"
   },
   "dataset_definitions" : [
     {

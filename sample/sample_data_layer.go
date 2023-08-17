@@ -3,13 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	layer "github.com/mimiro-io/common-datalayer"
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
-func EnrichConfig(args []string, config *layer.Config) error {
+func EnrichConfig(config *layer.Config) error {
 	config.DatasetDefinitions = append(config.DatasetDefinitions, &layer.DatasetDefinition{
 		DatasetName:  "sample",
 		SourceConfig: map[string]any{"stripProps": "true"},
@@ -26,53 +27,8 @@ func EnrichConfig(args []string, config *layer.Config) error {
 			},
 		},
 	})
+	//config.ApplicationConfig["env"] = "local"
 	return nil
-}
-
-/*********************************************************************************************************************/
-
-// DataObject is the row/item type for the sample data layer. it implements the Item interface
-// In addition to the Item interface, it also has a dedicated ID field and AsBytes,
-// which is used to serialize the item for this specific layer
-type DataObject struct {
-	ID    string
-	Props map[string]any
-}
-
-func (d *DataObject) GetRaw() map[string]interface{} {
-	if d == nil {
-		return nil
-	}
-	return d.Props
-}
-func (d *DataObject) PutRaw(raw map[string]interface{}) {
-	d.Props = raw
-	for k, v := range raw {
-		if k == "ID" {
-			d.ID = v.(string)
-		}
-	}
-}
-
-func (d *DataObject) GetValue(name string) interface{} {
-	if name == "ID" {
-		return d.ID
-	} else {
-		return d.Props[name]
-	}
-}
-
-func (d *DataObject) SetValue(name string, value interface{}) {
-	if name == "ID" {
-		d.ID = value.(string)
-	} else {
-		d.Props[name] = value.(string)
-	}
-}
-
-func (d *DataObject) AsBytes() []byte {
-	b, _ := json.Marshal(d)
-	return b
 }
 
 /*********************************************************************************************************************/
@@ -85,30 +41,15 @@ type SampleDataLayer struct {
 	datasets map[string]*SampleDataset
 }
 
-func (dl *SampleDataLayer) ItemFactory() func(item *layer.DataItem) *DataObject {
-	return func(item *layer.DataItem) *DataObject {
-		res := &DataObject{}
-		res.Props = make(map[string]any)
-		for k, v := range item.GetRaw() {
-			if k == "ID" {
-				res.ID = v.(string)
-				continue
-			}
-			res.Props[k] = v
-		}
-		return res
-	}
-}
-
-func (dl *SampleDataLayer) GetDataset(dataset string) layer.Dataset {
+func (dl *SampleDataLayer) Dataset(dataset string) (layer.Dataset, layer.LayerError) {
 	ds, found := dl.datasets[dataset]
 	if found {
-		return ds
+		return ds, nil
 	}
-	return nil
+	return nil, layer.Errorf(layer.LayerErrorBadParameter, "dataset %s not found", dataset)
 }
 
-func (dl *SampleDataLayer) ListDatasetNames() []string {
+func (dl *SampleDataLayer) DatasetNames() []string {
 	// create a slice of strings to hold the dataset names
 	var datasetNames []string
 
@@ -124,14 +65,14 @@ func (dl *SampleDataLayer) Stop(_ context.Context) error { return nil }
 
 // NewSampleDataLayer is a factory function that creates a new instance of the sample data layer
 // In this example we use it to populate the sample dataset with some data
-func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error) {
-	sampleDataLayer := &SampleDataLayer{}
+func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.Metrics) (layer.DataLayerService, error) {
+	sampleDataLayer := &SampleDataLayer{config: conf, logger: logger, metrics: metrics}
 
 	// initialize the datasets
 	sampleDataLayer.datasets = make(map[string]*SampleDataset)
 
 	// create a sample dataset
-	sampleDataLayer.datasets["sample"] = &SampleDataset{Name: "sample"}
+	sampleDataLayer.datasets["sample"] = &SampleDataset{dsName: "sample"}
 	// loop to create 20 objects
 	for i := 0; i < 20; i++ {
 		// create a data object
@@ -144,13 +85,18 @@ func NewSampleDataLayer(core *layer.CoreService) (layer.DataLayerService, error)
 		// add the data object to the sample dataset
 		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
 	}
+	logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
+	err := sampleDataLayer.UpdateConfiguration(conf)
+	if err != nil {
+		return nil, err
+	}
 	return sampleDataLayer, nil
 }
 
 // Initialize is called by the core service when the configuration is loaded.
 // can be called many times if the configuration is reloaded
-func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger) error {
-	dl.config = config
+func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.LayerError {
+	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
@@ -158,7 +104,6 @@ func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger)
 			}
 		}
 	}
-	dl.logger = logger
 	return nil
 }
 
@@ -166,26 +111,27 @@ func (dl *SampleDataLayer) Initialize(config *layer.Config, logger layer.Logger)
 
 // SampleDataset is a sample implementation of the Dataset interface, it provides a simple in-memory dataset in this case
 type SampleDataset struct {
-	Name     string
+	dsName   string
 	mappings []*layer.EntityPropertyMapping
 	data     [][]byte
 }
 
-func (ds *SampleDataset) WriteItem(item layer.Item) error {
+func (ds *SampleDataset) Write(item layer.Item) layer.LayerError {
 	do := &DataObject{}
-	do.PutRaw(item.GetRaw())
+	do.ID = item.GetValue("ID").(string)
+	do.Props = item.GetRaw()
 	ds.data = append(ds.data, do.AsBytes())
 	return nil
 }
 
-func (ds *SampleDataset) GetName() string {
-	return ds.Name
+func (ds *SampleDataset) Name() string {
+	return ds.dsName
 }
 
 // GetChanges returns an iterator over the changes since the given timestamp,
 // The implementation uses the provided MappingEntityIterator and a custom DataObjectIterator
 // to map the data objects to entities
-func (ds *SampleDataset) GetChanges(since string, take int, _ bool) (layer.EntityIterator, error) {
+func (ds *SampleDataset) Changes(since string, take int, _ bool) (layer.EntityIterator, layer.LayerError) {
 	data := ds.data
 	entityIterator := layer.NewMappingEntityIterator(
 		ds.mappings,
@@ -194,24 +140,39 @@ func (ds *SampleDataset) GetChanges(since string, take int, _ bool) (layer.Entit
 	return entityIterator, nil
 }
 
-func (ds *SampleDataset) GetEntities(since string, take int) (layer.EntityIterator, error) {
-	return ds.GetChanges(since, take, true)
+func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator, layer.LayerError) {
+	return ds.Changes(since, take, true)
 }
 
-func (ds *SampleDataset) BeginFullSync() error {
+func (ds *SampleDataset) BeginFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) CompleteFullSync() error {
+func (ds *SampleDataset) CompleteFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) CancelFullSync() error {
+func (ds *SampleDataset) CancelFullSync() layer.LayerError {
 	return nil
 }
 
-func (ds *SampleDataset) Description() map[string]interface{} {
+func (ds *SampleDataset) MetaData() map[string]any {
 	return nil
+}
+
+/*********************************************************************************************************************/
+
+// DataObject is the row/item type for the sample data layer. it implements the Item interface
+// In addition to the Item interface, it also has a dedicated ID field and AsBytes,
+// which is used to serialize the item for this specific layer
+type DataObject struct {
+	ID    string
+	Props map[string]any
+}
+
+func (d *DataObject) AsBytes() []byte {
+	b, _ := json.Marshal(d)
+	return b
 }
 
 /*********************************************************************************************************************/
@@ -251,6 +212,8 @@ func (doi *DataObjectIterator) Next() layer.Item {
 	if err != nil {
 		panic(err)
 	}
-	res := &obj
+	res := &layer.DataItem{}
+	res.PutRaw(obj.Props)
+	res.SetValue("ID", obj.ID)
 	return res
 }

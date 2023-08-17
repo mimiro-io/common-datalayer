@@ -8,90 +8,92 @@ import (
 	"syscall"
 )
 
-func loadConfig(args []string) (*Config, error) {
-	config := NewConfig()
-	err := config.Load(args)
-	if err != nil {
-		return nil, err
-	}
-	return config, nil
-}
-
-type Stoppable interface {
-	Stop(ctx context.Context) error
-}
 type Service struct {
 	stoppables []Stoppable
 	logger     Logger
 }
 
-func (s *Service) Stop() {
+func (s *Service) Stop() error {
 	ctx := context.Background()
 	for _, stoppable := range s.stoppables {
-		stoppable.Stop(ctx)
+		err := stoppable.Stop(ctx)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
-// StartService call this from main to get things started
-func StartService(
-	args []string,
-	newLayerService func(core *CoreService) (DataLayerService, error),
-	enrichConfig func(args []string, config *Config) error,
-) {
-	s := CreateService(args, newLayerService, enrichConfig)
+func (s *Service) AndWait() error {
 	// handle shutdown, this call blocks and keeps the application running
 	waitForStop(s.logger, s.stoppables...)
+	return nil
 }
 
-func CreateService(
-	args []string,
-	newLayerService func(core *CoreService) (DataLayerService, error),
-	enrichConfig func(args []string, config *Config) error,
-) Service {
-	// create core layer service
-	// read config
+type StartOptions struct {
+	enrichConfig func(config *Config) error
+	configFiles  []string
+}
+type Option func(*StartOptions)
+
+func EnrichConfigOption(enrichConfig func(config *Config) error) Option {
+	return func(o *StartOptions) {
+		o.enrichConfig = enrichConfig
+	}
+}
+func ConfigFileOption(configFile string) Option {
+	return func(o *StartOptions) {
+		o.configFiles = append(o.configFiles, configFile)
+	}
+}
+func Start(
+	newLayerService func(conf *Config, logger Logger, metrics Metrics) (DataLayerService, error),
+	options ...Option,
+) *Service {
+	so := &StartOptions{}
+	for _, option := range options {
+		option(so)
+	}
+	var args []string
+	defaultPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
+	if found {
+		args = append(args, defaultPath)
+	}
+	args = append(args, so.configFiles...)
 	config, err := loadConfig(args)
 	if err != nil {
-		panic(err)
-	}
-	err = config.SystemConfig.Verify()
-	if err != nil {
+
 		panic(err)
 	}
 
 	// enrich config specific for layer
-	err = enrichConfig(args, config)
-
-	if err != nil {
-		panic(err)
+	if so.enrichConfig != nil {
+		err = so.enrichConfig(config)
+		if err != nil {
+			panic(err)
+		}
 	}
-	// initialise logger
-	logger := newLogger()
+
+	// initialise l
+	l := newLogger(config)
 
 	metrics, err := newMetrics(config)
 	if err != nil {
 		panic(err)
 	}
 
-	cs := &CoreService{
-		Config:  config,
-		Logger:  logger,
-		Metrics: metrics,
-	}
-
-	layerService, err := newLayerService(cs)
+	layerService, err := newLayerService(config, l, metrics)
 	if err != nil {
 		panic(err)
 	}
 
-	err = layerService.Initialize(config, logger)
+	updater, err := newConfigUpdater(config, args, so.enrichConfig, l, layerService)
 	if err != nil {
 		panic(err)
 	}
-	// TODO: hook up config updater which calls layerService.Initialize on change
 
 	// create web service hook up with the service core
-	webService, err := NewDataLayerWebService(cs, layerService)
+	webService, err := newDataLayerWebService(config, l, metrics, layerService)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +103,9 @@ func CreateService(
 	if err != nil {
 		panic(err)
 	}
-	return Service{stoppables: []Stoppable{layerService, webService}, logger: logger}
+	return &Service{
+		stoppables: []Stoppable{updater, layerService, webService},
+		logger:     l}
 }
 
 // waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
