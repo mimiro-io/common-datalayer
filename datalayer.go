@@ -1,6 +1,10 @@
 package common_datalayer
 
-import "context"
+import (
+	"context"
+
+	egdm "github.com/mimiro-io/entity-graph-data-model"
+)
 
 type Stoppable interface {
 	Stop(ctx context.Context) error
@@ -12,13 +16,24 @@ type DataLayerService interface {
 	DatasetNames() []string
 }
 
+type BatchInfo struct {
+	Id          string
+	BatchId     string
+	IsLastBatch bool
+}
+
 type Dataset interface {
 	MetaData() map[string]any
 	Name() string
-	Write(item Item) LayerError
-	BeginFullSync() LayerError
-	CompleteFullSync() LayerError
-	CancelFullSync() LayerError
+
+	FullSync(ctx context.Context, batchInfo BatchInfo) (DatasetWriter, LayerError)
+	Incremental(ctx context.Context) (DatasetWriter, LayerError)
+
 	Changes(since string, take int, latestOnly bool) (EntityIterator, LayerError)
 	Entities(since string, take int) (EntityIterator, LayerError)
+}
+
+type DatasetWriter interface {
+	Write(entity *egdm.Entity) LayerError
+	Close() LayerError
 }

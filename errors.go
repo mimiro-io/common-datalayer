@@ -11,6 +11,7 @@ type LayerErrorType int
 const (
 	LayerErrorBadParameter LayerErrorType = iota
 	LayerErrorInternal
+	LayerNotSupported
 )
 
 type LayerError interface {
