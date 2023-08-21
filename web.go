@@ -154,29 +154,33 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
-	definition := ws.config.GetDatasetDefinition(datasetName)
+	/*definition := ws.config.GetDatasetDefinition(datasetName)
 	if definition == nil {
 		ws.logger.Error("could not find dataset definition " + datasetName)
 		return echo.NewHTTPError(http.StatusBadRequest, "could not find dataset definition "+datasetName)
+	} */
+
+	//	mappings := definition.Mappings
+	// 	mapper := NewDataItemMapper(mappings)
+	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
+	// always want to exapand URIs as the context is not passed in to the dataset writer
+	// mappings are always full URI mappings
+	parser.WithExpandURIs()
+	writer, err := ds.Incremental(context.Background())
+	if err != nil {
+		ws.logger.Warn(err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "could not create dataset writer")
 	}
 
-	mappings := definition.Mappings
-	mapper := NewDataItemMapper(mappings)
-	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
-	// if stripProps is enabled, the producers service will strip all namespace prefixes from the properties
-	if !definition.StripProps() {
-		// if it is NOT enabled, we will expand all namespace prefixes in the entity parser
-		parser = parser.WithExpandURIs()
-	}
 	err2 := parser.Parse(c.Request().Body, func(entity *egdm.Entity) error {
-		item := mapper.EntityToItem(entity)
-		err2 := ds.Write(item)
+		err2 := writer.Write(entity)
 		if err2 != nil {
 			return err2.Underlying()
 		}
 
 		return nil
 	}, nil)
+
 	if err2 != nil {
 		ws.logger.Warn(err.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "could not parse the json payload")

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 
 	layer "github.com/mimiro-io/common-datalayer"
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
@@ -55,8 +57,12 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 	// initialize the datasets
 	sampleDataLayer.datasets = make(map[string]*SampleDataset)
 
-	// create a sample dataset
-	sampleDataLayer.datasets["sample"] = &SampleDataset{dsName: "sample"}
+	// iterate over the dataset definitions in the configuration
+	for _, dsd := range conf.DatasetDefinitions {
+		// create a new sample dataset
+		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mappings: dsd.Mappings}
+	}
+
 	// loop to create 20 objects
 	for i := 0; i < 20; i++ {
 		// create a data object
@@ -69,6 +75,7 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 		// add the data object to the sample dataset
 		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
 	}
+
 	logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
 	err := sampleDataLayer.UpdateConfiguration(conf)
 	if err != nil {
@@ -100,16 +107,6 @@ type SampleDataset struct {
 	data     [][]byte
 }
 
-func (ds *SampleDataset) Write(item layer.Item) layer.LayerError {
-	do := &DataObject{}
-	if item.GetValue("id") != nil {
-		do.ID = item.GetValue("id").(string)
-	}
-	do.Props = item.GetRaw()
-	ds.data = append(ds.data, do.AsBytes())
-	return nil
-}
-
 func (ds *SampleDataset) Name() string {
 	return ds.dsName
 }
@@ -130,19 +127,48 @@ func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator,
 	return ds.Changes(since, take, true)
 }
 
-func (ds *SampleDataset) BeginFullSync() layer.LayerError {
-	return nil
-}
-
-func (ds *SampleDataset) CompleteFullSync() layer.LayerError {
-	return nil
-}
-
-func (ds *SampleDataset) CancelFullSync() layer.LayerError {
-	return nil
-}
-
 func (ds *SampleDataset) MetaData() map[string]any {
+	return nil
+}
+
+func (ds *SampleDataset) FullSync(_ context.Context, _ layer.BatchInfo) (layer.DatasetWriter, layer.LayerError) {
+	return nil, layer.Err(errors.New("full sync not implemented"), layer.LayerNotSupported)
+}
+
+func (ds *SampleDataset) Incremental(ctx context.Context) (layer.DatasetWriter, layer.LayerError) {
+	writer := NewSampleDatasetWriter(ds, layer.NewDataItemMapper(ds.mappings), ctx)
+	return writer, nil
+}
+
+type SampleDatasetWriter struct {
+	ds     *SampleDataset
+	mapper layer.EntityToItemMapper
+	ctx    context.Context
+}
+
+func NewSampleDatasetWriter(ds *SampleDataset, mapper layer.EntityToItemMapper, ctx context.Context) *SampleDatasetWriter {
+	return &SampleDatasetWriter{ds: ds, mapper: mapper, ctx: ctx}
+}
+
+func (sdw *SampleDatasetWriter) Close() layer.LayerError {
+	select {
+	case <-sdw.ctx.Done():
+		return layer.Err(sdw.ctx.Err(), layer.LayerErrorInternal)
+	default:
+		return nil
+	}
+}
+
+func (sdw *SampleDatasetWriter) Write(entity *egdm.Entity) layer.LayerError {
+	// map to item
+	item := sdw.mapper.EntityToItem(entity)
+
+	do := &DataObject{}
+	if item.GetValue("id") != nil {
+		do.ID = item.GetValue("id").(string)
+	}
+	do.Props = item.GetRaw()
+	sdw.ds.data = append(sdw.ds.data, do.AsBytes())
 	return nil
 }
 
