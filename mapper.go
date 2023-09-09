@@ -4,12 +4,69 @@ import (
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
 
-type Item interface {
-	GetRaw() map[string]any
-	PutRaw(raw map[string]any)
-	GetValue(name string) any
-	SetValue(name string, value any)
+type Mapper struct {
+	logger                      Logger
+	constructions               []*PropertyConstructor
+	mappings                    []*EntityPropertyMapping
+	entityKeyMappings           map[string]*EntityPropertyMapping
+	itemKeyMappings             map[string]*EntityPropertyMapping
+	itemToEntityCustomTransform []func(item Item, entity *egdm.Entity) error
+	entityToItemCustomTransform []func(entity *egdm.Entity, item Item) error
 }
+
+func NewMapper(constructions []*PropertyConstructor, mappings []*EntityPropertyMapping) *Mapper {
+	mapper := &Mapper{
+		mappings:                    mappings,
+		constructions:               constructions,
+		itemToEntityCustomTransform: make([]func(item Item, entity *egdm.Entity) error, 0),
+		entityToItemCustomTransform: make([]func(entity *egdm.Entity, item Item) error, 0),
+	}
+
+	mapper.entityKeyMappings = make(map[string]*EntityPropertyMapping)
+	mapper.itemKeyMappings = make(map[string]*EntityPropertyMapping)
+
+	// enable fast lookup of the mappings
+	for _, mapping := range mappings {
+		propertyName := mapping.Property
+		entityPropertyName := mapping.EntityProperty
+
+		mapper.entityKeyMappings[entityPropertyName] = mapping
+		mapper.itemKeyMappings[propertyName] = mapping
+	}
+
+	return mapper
+}
+
+func (mapper *Mapper) WithEntityToItemTransform(transform func(entity *egdm.Entity, item Item) error) *Mapper {
+	mapper.entityToItemCustomTransform = append(mapper.entityToItemCustomTransform, transform)
+	return mapper
+}
+
+func (mapper *Mapper) WithItemToEntityTransform(transform func(item Item, entity *egdm.Entity) error) *Mapper {
+	mapper.itemToEntityCustomTransform = append(mapper.itemToEntityCustomTransform, transform)
+	return mapper
+}
+
+func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
+	// apply constructions
+
+	return nil
+}
+
+func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
+	return nil
+}
+
+type Item interface {
+	// GetValue returns the value of the property with the given name
+	GetValue(name string) any
+	// SetValue sets the value of the property with the given name
+	SetValue(name string, value any)
+	// NativeItem returns the underlying native item
+	NativeItem() any
+}
+
+/*
 
 type DataItem struct {
 	raw map[string]any
@@ -131,3 +188,4 @@ func NewGenericEntityMapper(mappings []*EntityPropertyMapping) *GenericEntityMap
 		Mappings: mappings,
 	}
 }
+*/

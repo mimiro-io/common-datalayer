@@ -12,9 +12,17 @@ import (
 type SystemConfig map[string]any
 type ApplicationConfig map[string]any
 type DatasetDefinition struct {
-	DatasetName  string                   `json:"dataset_name"`
-	SourceConfig map[string]any           `json:"source_configuration"`
-	Mappings     []*EntityPropertyMapping `json:"mappings"`
+	DatasetName   string                   `json:"dataset_name"`
+	SourceConfig  map[string]any           `json:"source_configuration"`
+	Constructions []*PropertyConstructor   `json:"constructions"`
+	Mappings      []*EntityPropertyMapping `json:"mappings"`
+}
+
+// the operations can be one of the following: concat, split, replace, trim, tolower, toupper, regex, slice
+type PropertyConstructor struct {
+	PropertyName string   `json:"property"`
+	Operation    string   `json:"operation"`
+	Arguments    []string `json:"args"`
 }
 
 type EntityPropertyMapping struct {

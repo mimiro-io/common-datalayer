@@ -9,6 +9,11 @@ import (
 type Stoppable interface {
 	Stop(ctx context.Context) error
 }
+
+type DataLayerServiceFactory interface {
+	Build(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)
+}
+
 type DataLayerService interface {
 	Stoppable
 	UpdateConfiguration(config *Config) LayerError
@@ -20,6 +25,12 @@ type BatchInfo struct {
 	Id          string
 	BatchId     string
 	IsLastBatch bool
+}
+
+type EntityIterator interface {
+	Next() (*egdm.Entity, LayerError)
+	Token() (string, LayerError)
+	Close() LayerError
 }
 
 type Dataset interface {
