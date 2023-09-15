@@ -12,7 +12,7 @@ import (
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
 func EnrichConfig(config *layer.Config) error {
-	//config.ApplicationConfig["env"] = "local"
+	config.NativeSystemConfig["env"] = "local"
 	return nil
 }
 

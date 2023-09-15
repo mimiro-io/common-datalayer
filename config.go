@@ -10,7 +10,7 @@ import (
 
 type Config struct {
 	ConfigPath         string               // set by service runner
-	NativeSystemConfig *NativeSystemConfig  `json:"system_configuration"`
+	NativeSystemConfig NativeSystemConfig   `json:"system_configuration"`
 	LayerServiceConfig *LayerServiceConfig  `json:"layer_configuration"`
 	DatasetDefinitions []*DatasetDefinition `json:"dataset_definitions"`
 }
