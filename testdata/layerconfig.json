@@ -1,0 +1,7 @@
+{
+  "layer_configuration": {
+    "port": "8080",
+    "service_name": "sample"
+  }
+}
+
