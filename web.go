@@ -18,11 +18,10 @@ import (
 type dataLayerWebService struct {
 	// service specific service core
 	datalayerService DataLayerService
-
-	e       *echo.Echo
-	metrics Metrics
-	logger  Logger
-	config  *Config
+	e                *echo.Echo
+	metrics          Metrics
+	logger           Logger
+	config           *Config
 }
 
 func newDataLayerWebService(config *Config, logger Logger, metrics Metrics, dataLayerService DataLayerService) (*dataLayerWebService, error) {
@@ -124,7 +123,7 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 }
 
 func (ws *dataLayerWebService) Start() error {
-	port := ws.config.ApplicationConfig.HttpPort()
+	port := ws.config.LayerServiceConfig.Port
 	ws.logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)
@@ -163,7 +162,7 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	//	mappings := definition.Mappings
 	// 	mapper := NewDataItemMapper(mappings)
 	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
-	// always want to exapand URIs as the context is not passed in to the dataset writer
+	// always want to expand URIs as the context is not passed in to the dataset writer
 	// mappings are always full URI mappings
 	parser.WithExpandURIs()
 	writer, err := ds.Incremental(context.Background())
@@ -228,8 +227,11 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 
 func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
 	for {
-		entity := entityIterator.Next()
-		//fmt.Println(entity, entity == nil)
+		entity, lerr := entityIterator.Next()
+		if lerr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, lerr.Error())
+		}
+
 		if entity == nil {
 			break
 		}

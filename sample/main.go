@@ -1,11 +1,14 @@
 package main
 
-import layer "github.com/mimiro-io/common-datalayer"
+import cdl "github.com/mimiro-io/common-datalayer"
 
 // main function
 func main() {
-	_ = layer.Start(
-		NewSampleDataLayer,
-		layer.ConfigFileOption("sample/sample_config.json"),
-	).AndWait()
+	serviceRunner := cdl.NewServiceRunner(NewSampleDataLayer)
+	serviceRunner.WithConfigLocation("./config")
+	serviceRunner.WithEnrichConfig(EnrichConfig)
+	err := serviceRunner.Start()
+	if err != nil {
+		panic(err)
+	}
 }

@@ -3,13 +3,13 @@ package common_datalayer
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 )
 
 type configUpdater struct {
 	ticker *time.Ticker
 	logger Logger
+	config *Config
 }
 
 func (u *configUpdater) Stop(ctx context.Context) error {
@@ -20,7 +20,6 @@ func (u *configUpdater) Stop(ctx context.Context) error {
 
 func newConfigUpdater(
 	config *Config,
-	args []string,
 	enrichConfig func(config *Config) error,
 	l Logger,
 	listeners ...DataLayerService) (*configUpdater, error) {
@@ -30,16 +29,16 @@ func newConfigUpdater(
 		for {
 			select {
 			case <-u.ticker.C:
-				checkForUpdates(config, args, enrichConfig, l, listeners...)
+				u.checkForUpdates(enrichConfig, l, listeners...)
 			}
 		}
 	}()
 	return u, nil
 }
 
-func checkForUpdates(config *Config, args []string, enrichConfig func(config *Config) error, logger Logger, listeners ...DataLayerService) {
-	logger.Debug("checking config for updates in " + strings.Join(args, ", ") + ".")
-	loadedConf, err := loadConfig(args)
+func (u *configUpdater) checkForUpdates(enrichConfig func(config *Config) error, logger Logger, listeners ...DataLayerService) {
+	logger.Debug("checking config for updates in " + u.config.ConfigPath + ".")
+	loadedConf, err := loadConfig(u.config.ConfigPath)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to load config: %v", err.Error()))
 		return
@@ -51,7 +50,7 @@ func checkForUpdates(config *Config, args []string, enrichConfig func(config *Co
 			return
 		}
 	}
-	if !config.equals(loadedConf) {
+	if !u.config.equals(loadedConf) {
 		logger.Info("Config changed, updating...")
 		for _, listener := range listeners {
 			err = listener.UpdateConfiguration(loadedConf)
@@ -60,5 +59,7 @@ func checkForUpdates(config *Config, args []string, enrichConfig func(config *Co
 				return
 			}
 		}
+		// set config to the new loaded config
+		u.config = loadedConf
 	}
 }

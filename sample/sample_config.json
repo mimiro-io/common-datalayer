@@ -1,8 +1,11 @@
 {
-  "application_configuration": {
+  "layer_configuration": {
     "port": "21712",
     "environment": "dev",
     "service_name": "sample_service"
+  },
+  "system_configuration" : {
+
   },
   "dataset_definitions": [
     {

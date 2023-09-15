@@ -8,66 +8,34 @@ import (
 	"syscall"
 )
 
-type Service struct {
-	stoppables []Stoppable
-	logger     Logger
+func (serviceRunner *ServiceRunner) WithEnrichConfig(enrichConfig func(config *Config) error) *ServiceRunner {
+	serviceRunner.enrichConfig = enrichConfig
+	return serviceRunner
 }
 
-func (s *Service) Stop() error {
-	ctx := context.Background()
-	for _, stoppable := range s.stoppables {
-		err := stoppable.Stop(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (serviceRunner *ServiceRunner) WithConfigLocation(configLocation string) *ServiceRunner {
+	serviceRunner.configLocation = configLocation
+	return serviceRunner
 }
 
-func (s *Service) AndWait() error {
-	// handle shutdown, this call blocks and keeps the application running
-	waitForStop(s.logger, s.stoppables...)
-	return nil
-}
+func NewServiceRunner(newLayerService func(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)) *ServiceRunner {
+	runner := &ServiceRunner{}
 
-type StartOptions struct {
-	enrichConfig func(config *Config) error
-	configFiles  []string
-}
-type Option func(*StartOptions)
-
-func EnrichConfigOption(enrichConfig func(config *Config) error) Option {
-	return func(o *StartOptions) {
-		o.enrichConfig = enrichConfig
-	}
-}
-func ConfigFileOption(configFile string) Option {
-	return func(o *StartOptions) {
-		o.configFiles = append(o.configFiles, configFile)
-	}
-}
-func Start(
-	newLayerService func(conf *Config, logger Logger, metrics Metrics) (DataLayerService, error),
-	options ...Option,
-) *Service {
-	so := &StartOptions{}
-	for _, option := range options {
-		option(so)
-	}
-	var args []string
-	defaultPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
+	configPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
 	if found {
-		args = append(args, defaultPath)
+		runner.configLocation = configPath
+	} else {
+		runner.configLocation = "./config"
 	}
-	args = append(args, so.configFiles...)
-	config, err := loadConfig(args)
+
+	config, err := loadConfig(configPath)
 	if err != nil {
 		panic(err)
 	}
 
 	// enrich config specific for layer
-	if so.enrichConfig != nil {
-		err = so.enrichConfig(config)
+	if runner.enrichConfig != nil {
+		err = runner.enrichConfig(config)
 		if err != nil {
 			panic(err)
 		}
@@ -86,31 +54,70 @@ func Start(
 		panic(err)
 	}
 
-	updater, err := newConfigUpdater(config, args, so.enrichConfig, l, layerService)
+	// create and start config updater
+	runner.configUpdater, err = newConfigUpdater(config, runner.enrichConfig, l, layerService)
 	if err != nil {
 		panic(err)
 	}
 
 	// create web service hook up with the service core
-	webService, err := newDataLayerWebService(config, l, metrics, layerService)
+	runner.webService, err = newDataLayerWebService(config, l, metrics, layerService)
 	if err != nil {
 		panic(err)
 	}
 
-	// start the service
-	err = webService.Start()
-	if err != nil {
-		panic(err)
-	}
-	return &Service{
-		stoppables: []Stoppable{updater, layerService, webService},
-		logger:     l}
+	return runner
 }
 
-// waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
-//
-//	It accepts a list of stoppables that will be stopped when a signal is received.
-func waitForStop(logger Logger, stoppables ...Stoppable) {
+type ServiceRunner struct {
+	stoppable      []Stoppable
+	logger         Logger
+	configLocation string
+	enrichConfig   func(config *Config) error
+	webService     *dataLayerWebService
+	configUpdater  *configUpdater
+}
+
+func (serviceRunner *ServiceRunner) Start() error {
+	// start the service
+	err := serviceRunner.webService.Start()
+	if err != nil {
+		return err
+	}
+	err = serviceRunner.andWait()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (serviceRunner *ServiceRunner) Stop() error {
+	ctx := context.Background()
+	for _, stoppable := range serviceRunner.stoppable {
+		err := stoppable.Stop(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// also stop config updater
+	err := serviceRunner.configUpdater.Stop(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (serviceRunner *ServiceRunner) andWait() error {
+	// handle shutdown, this call blocks and keeps the application running
+	waitForStop(serviceRunner.logger, serviceRunner.stoppable...)
+	return nil
+}
+
+//	 waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
+//		It accepts a list of stoppables that will be stopped when a signal is received.
+func waitForStop(logger Logger, stoppable ...Stoppable) {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
@@ -118,7 +125,7 @@ func waitForStop(logger Logger, stoppables ...Stoppable) {
 
 	shutdownCtx := context.Background()
 	wg := sync.WaitGroup{}
-	for _, s := range stoppables {
+	for _, s := range stoppable {
 		s := s
 		wg.Add(1)
 		go func() {

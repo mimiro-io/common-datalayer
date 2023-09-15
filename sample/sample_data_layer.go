@@ -59,7 +59,8 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 	// iterate over the dataset definitions in the configuration
 	for _, dsd := range conf.DatasetDefinitions {
 		// create a new sample dataset
-		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mappings: dsd.Mappings}
+		mapper := layer.NewMapper(dsd.Constructions, dsd.Mappings)
+		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mapper: mapper}
 	}
 
 	// loop to create 20 objects
@@ -83,14 +84,13 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 	return sampleDataLayer, nil
 }
 
-// Initialize is called by the core service when the configuration is loaded.
-// can be called many times if the configuration is reloaded
 func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.LayerError {
 	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
-				v.mappings = dsd.Mappings
+				mapper := layer.NewMapper(dsd.Constructions, dsd.Mappings)
+				v.mapper = mapper
 			}
 		}
 	}
@@ -152,11 +152,11 @@ func (sei *SampleEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
 }
 
 func (sei *SampleEntityIterator) Token() (string, layer.LayerError) {
-
+	return "", nil
 }
 
 func (sei *SampleEntityIterator) Close() layer.LayerError {
-
+	return nil
 }
 
 type SampleDatasetWriter struct {

@@ -3,11 +3,11 @@ package common_datalayer
 import "testing"
 
 func TestConfig(t *testing.T) {
-	config, err := loadConfig([]string{"./testdata/config.json", "./testdata/config-override.json"})
+	config, err := loadConfig("./testdata")
 	if err != nil {
 		t.Error(err)
 	}
-	if config.ApplicationConfig.ServiceName() != "sample" {
+	if config.LayerServiceConfig.ServiceName != "sample" {
 		t.Error("ServiceName should be sample")
 	}
 }
