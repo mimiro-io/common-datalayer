@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 )
@@ -29,10 +30,17 @@ type LayerServiceConfig struct {
 }
 
 type DatasetDefinition struct {
-	DatasetName   string                   `json:"dataset_name"`
-	SourceConfig  map[string]any           `json:"source_configuration"`
-	Constructions []*PropertyConstructor   `json:"constructions"`
-	Mappings      []*EntityPropertyMapping `json:"mappings"`
+	DatasetName   string         `json:"dataset_name"`
+	SourceConfig  map[string]any `json:"source_configuration"`
+	MappingConfig *MappingConfig `json:"mapping_configuration"`
+}
+
+type MappingConfig struct {
+	BaseURI          string                 `json:"base_uri"` // used when mapping all
+	Constructions    []*PropertyConstructor `json:"constructions"`
+	PropertyMappings []*PropertyMapping     `json:"mappings"`
+	MapAllFromItem   bool                   `json:"map_all_from_item"` // if true, all properties are mapped from an item
+	MapAllToItem     bool                   `json:"map_to_item"`       // if true, all properties are mapped into an item
 }
 
 // the operations can be one of the following: concat, split, replace, trim, tolower, toupper, regex, slice
@@ -42,15 +50,15 @@ type PropertyConstructor struct {
 	Arguments    []string `json:"args"`
 }
 
-type EntityPropertyMapping struct {
-	// hang on to the raw config as it allows for local extensions
-	Custom          map[string]any
-	EntityProperty  string `json:"entity_property"`
-	Property        string `json:"property"`
-	Datatype        string `json:"datatype"`
-	IsReference     bool   `json:"is_reference"`
-	UrlValuePattern string `json:"url_value_pattern"`
-	IsIdentity      bool   `json:"is_identity"`
+type PropertyMapping struct {
+	Custom               map[string]any
+	EntityProperty       string `json:"entity_property"`
+	Property             string `json:"property"`
+	Datatype             string `json:"datatype"`
+	IsReference          bool   `json:"is_reference"`
+	UrlValuePattern      string `json:"url_value_pattern"`
+	IsIdentity           bool   `json:"is_identity"`
+	DefaultPropertyValue string `json:"default_value"`
 }
 
 /******************************************************************************/
@@ -102,7 +110,7 @@ func loadConfig(configPath string) (*Config, error) {
 			var reader io.Reader
 			// load from file
 			var err error
-			reader, err = os.Open(file.Name())
+			reader, err = os.Open(filepath.Join(configPath, file.Name()))
 			if err != nil {
 				return nil, err
 			}
@@ -129,12 +137,30 @@ func addEnvOverrides(c *Config) {
 		c.LayerServiceConfig.ConfigRefreshInterval = val
 	}
 
-	/* val("ENV")
-	val("CONFIG_REFRESH_INTERVAL")
-	val("SERVICE_NAME")
-	val("STATSD_ENABLED")
-	val("STATSD_AGENT_ADDRESS")
-	val("LOG_LEVEL") */
+	val, found = os.LookupEnv("SERVICE_NAME")
+	if found {
+		c.LayerServiceConfig.ServiceName = val
+	}
+
+	val, found = os.LookupEnv("STATSD_ENABLED")
+	if found {
+		c.LayerServiceConfig.StatsdEnabled = val == "true"
+	}
+
+	val, found = os.LookupEnv("STATSD_AGENT_ADDRESS")
+	if found {
+		c.LayerServiceConfig.StatsdAgentAddress = val
+	}
+
+	val, found = os.LookupEnv("LOG_LEVEL")
+	if found {
+		c.LayerServiceConfig.LogLevel = val
+	}
+
+	val, found = os.LookupEnv("LOG_FORMAT")
+	if found {
+		c.LayerServiceConfig.LogFormat = val
+	}
 }
 
 func addConfig(mainConfig *Config, partialConfig *Config) {
@@ -160,8 +186,7 @@ func addConfig(mainConfig *Config, partialConfig *Config) {
 				if existingDef.DatasetName == def.DatasetName {
 					exists = true
 					existingDef.SourceConfig = def.SourceConfig
-					existingDef.Constructions = def.Constructions
-					existingDef.Mappings = def.Mappings
+					existingDef.MappingConfig = def.MappingConfig
 				}
 				break
 			}
