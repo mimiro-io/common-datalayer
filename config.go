@@ -41,6 +41,7 @@ type MappingConfig struct {
 	PropertyMappings []*PropertyMapping     `json:"mappings"`
 	MapAllFromItem   bool                   `json:"map_all_from_item"` // if true, all properties are mapped from an item
 	MapAllToItem     bool                   `json:"map_to_item"`       // if true, all properties are mapped into an item
+	Custom           map[string]any         `json:"custom"`
 }
 
 // the operations can be one of the following: concat, split, replace, trim, tolower, toupper, regex, slice

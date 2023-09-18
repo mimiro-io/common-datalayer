@@ -160,34 +160,65 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			mappedProperties[propertyName] = true
 		}
 
+		propertyValue, err := getValueFromItemOrConstruct(item, propertyName, constructedProperties)
+		if err != nil {
+			return errors.Wrap(err, "failed to get value from item or construct")
+		}
+		if propertyValue == nil {
+			if mapping.DefaultPropertyValue != "" {
+				propertyValue = mapping.DefaultPropertyValue
+			} else {
+				continue
+			}
+		}
+
 		if mapping.IsIdentity {
-			idValue, err := stringOfValue(item.GetValue(propertyName))
+			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
 				return errors.Wrap(err, "failed to convert identity value to string")
 			}
 			entity.ID = makeURL(mapping.UrlValuePattern, idValue)
-		} else {
-			if mapping.IsReference {
-				// reference property
-				referenceValue := item.GetValue(propertyName)
-				if referenceValue != nil {
-					referenceEntity := &egdm.Entity{ID: referenceValue.(string)}
-					entity.Properties[entityPropertyName] = referenceEntity
-				}
-			} else {
-				// regular property
-				if _, ok := constructedProperties[propertyName]; ok {
-					entity.Properties[entityPropertyName] = constructedProperties[propertyName]
-				} else {
-					entity.Properties[entityPropertyName] = item.GetValue(propertyName)
-				}
+		} else if mapping.IsReference {
+			// reference property
+			referenceValue, err := stringOfValue(propertyValue)
+			if err != nil {
+				return errors.Wrap(err, "failed to convert reference value to string")
 			}
+			entity.References[entityPropertyName] = makeURL(mapping.UrlValuePattern, referenceValue)
+		} else {
+			// regular property
+			entity.Properties[entityPropertyName] = propertyValue
+		}
+	}
+
+	// iterate over unmapped properties and add them to the entity
+	for propertyName, mapped := range mappedProperties {
+		if !mapped {
+			propertyValue := item.GetValue(propertyName)
+			entityPropertyName := mapper.mappingConfig.BaseURI + propertyName
+			entity.Properties[entityPropertyName] = propertyValue
 		}
 	}
 
 	// apply custom transforms
+	if len(mapper.itemToEntityCustomTransform) > 0 {
+		for _, transform := range mapper.itemToEntityCustomTransform {
+			err := transform(item, entity)
+			if err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
+}
+
+func getValueFromItemOrConstruct(item Item, propertyName string, constructedProperties map[string]any) (any, error) {
+	if val, ok := constructedProperties[propertyName]; ok {
+		return val, nil
+	} else {
+		return item.GetValue(propertyName), nil
+	}
 }
 
 func makeURL(urlPattern string, value string) string {
