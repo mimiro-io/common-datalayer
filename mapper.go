@@ -10,33 +10,37 @@ import (
 )
 
 type Mapper struct {
-	logger                      Logger
-	mappingConfig               *MappingConfig
-	entityKeyMappings           map[string]*PropertyMapping
-	itemKeyMappings             map[string]*PropertyMapping
+	logger                Logger
+	incomingMappingConfig *IncomingMappingConfig
+	outgoingMappingConfig *OutgoingMappingConfig
+	// incomingKeyMappings         map[string]*EntityToItemPropertyMapping
+	// outgoingKeyMappings         map[string]*ItemToEntityPropertyMapping
 	itemToEntityCustomTransform []func(item Item, entity *egdm.Entity) error
 	entityToItemCustomTransform []func(entity *egdm.Entity, item Item) error
 }
 
-func NewMapper(logger Logger, mappingConfig *MappingConfig) *Mapper {
+func NewMapper(logger Logger, incomingMappingConfig *IncomingMappingConfig, outgoingMappingConfig *OutgoingMappingConfig) *Mapper {
 	mapper := &Mapper{
 		logger:                      logger,
-		mappingConfig:               mappingConfig,
+		incomingMappingConfig:       incomingMappingConfig,
+		outgoingMappingConfig:       outgoingMappingConfig,
 		itemToEntityCustomTransform: make([]func(item Item, entity *egdm.Entity) error, 0),
 		entityToItemCustomTransform: make([]func(entity *egdm.Entity, item Item) error, 0),
 	}
 
-	mapper.entityKeyMappings = make(map[string]*PropertyMapping)
-	mapper.itemKeyMappings = make(map[string]*PropertyMapping)
+	/* mapper.incomingKeyMappings = make(map[string]*EntityToItemPropertyMapping)
+	mapper.outgoingKeyMappings = make(map[string]*ItemToEntityPropertyMapping)
 
 	// enable fast lookup of the mappings
-	for _, mapping := range mappingConfig.PropertyMappings {
-		propertyName := mapping.Property
+	for _, mapping := range incomingMappingConfig.PropertyMappings {
 		entityPropertyName := mapping.EntityProperty
-
-		mapper.entityKeyMappings[entityPropertyName] = mapping
-		mapper.itemKeyMappings[propertyName] = mapping
+		mapper.incomingKeyMappings[entityPropertyName] = mapping
 	}
+
+	for _, mapping := range outgoingMappingConfig.PropertyMappings {
+		propertyName := mapping.Property
+		mapper.outgoingKeyMappings[propertyName] = mapping
+	} */
 
 	return mapper
 }
@@ -55,7 +59,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	// apply constructions
 	constructedProperties := make(map[string]any)
 
-	for _, construction := range mapper.mappingConfig.Constructions {
+	for _, construction := range mapper.outgoingMappingConfig.Constructions {
 		if construction.Operation == "concat" {
 			if len(construction.Arguments) != 2 {
 				return fmt.Errorf("concat operation requires two arguments")
@@ -146,17 +150,17 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	}
 
 	mappedProperties := make(map[string]bool)
-	if mapper.mappingConfig.MapAllFromItem {
+	if mapper.outgoingMappingConfig.MapAll {
 		for _, propertyName := range item.GetPropertyNames() {
 			mappedProperties[propertyName] = false
 		}
 	}
 
 	// apply mappings
-	for _, mapping := range mapper.mappingConfig.PropertyMappings {
+	for _, mapping := range mapper.outgoingMappingConfig.PropertyMappings {
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
-		if mapper.mappingConfig.MapAllFromItem {
+		if mapper.outgoingMappingConfig.MapAll {
 			mappedProperties[propertyName] = true
 		}
 
@@ -165,8 +169,8 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			return errors.Wrap(err, "failed to get value from item or construct")
 		}
 		if propertyValue == nil {
-			if mapping.DefaultPropertyValue != "" {
-				propertyValue = mapping.DefaultPropertyValue
+			if mapping.DefaultValue != nil {
+				propertyValue = mapping.DefaultValue
 			} else {
 				continue
 			}
@@ -195,7 +199,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	for propertyName, mapped := range mappedProperties {
 		if !mapped {
 			propertyValue := item.GetValue(propertyName)
-			entityPropertyName := mapper.mappingConfig.BaseURI + propertyName
+			entityPropertyName := mapper.outgoingMappingConfig.BaseURI + propertyName
 			entity.Properties[entityPropertyName] = propertyValue
 		}
 	}
@@ -380,6 +384,41 @@ func stringOfValue(val interface{}) (string, error) {
 }
 
 func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
+
+	mappedProperties := make(map[string]bool)
+	if mapper.incomingMappingConfig.MapAll {
+		for _, propertyName := range item.GetPropertyNames() {
+			mappedProperties[propertyName] = false
+		}
+	}
+
+	for _, mapping := range mapper.incomingMappingConfig.PropertyMappings {
+		propertyName := mapping.Property
+		entityPropertyName := mapping.EntityProperty
+
+		if mapping.IsIdentity {
+			item.SetValue(propertyName, entity.ID)
+		} else if mapping.IsReference {
+			// reference property
+			referenceValue := entity.References[entityPropertyName]
+			item.SetValue(propertyName, referenceValue)
+		} else {
+			// regular property
+			propertyValue := entity.Properties[entityPropertyName]
+			item.SetValue(propertyName, propertyValue)
+		}
+	}
+
+	// apply custom transforms
+	if len(mapper.entityToItemCustomTransform) > 0 {
+		for _, transform := range mapper.entityToItemCustomTransform {
+			err := transform(entity, item)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -390,7 +429,7 @@ type Item interface {
 	SetValue(name string, value any)
 	// NativeItem returns the underlying native item
 	NativeItem() any
-	// Get Items Keys
+	// GetPropertyNames returns the names of all properties in the item
 	GetPropertyNames() []string
 }
 

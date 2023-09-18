@@ -11,8 +11,8 @@ import (
 
 type Config struct {
 	ConfigPath         string               // set by service runner
-	NativeSystemConfig NativeSystemConfig   `json:"system_configuration"`
-	LayerServiceConfig *LayerServiceConfig  `json:"layer_configuration"`
+	NativeSystemConfig NativeSystemConfig   `json:"system_config"`
+	LayerServiceConfig *LayerServiceConfig  `json:"layer_config"`
 	DatasetDefinitions []*DatasetDefinition `json:"dataset_definitions"`
 }
 
@@ -30,18 +30,10 @@ type LayerServiceConfig struct {
 }
 
 type DatasetDefinition struct {
-	DatasetName   string         `json:"dataset_name"`
-	SourceConfig  map[string]any `json:"source_configuration"`
-	MappingConfig *MappingConfig `json:"mapping_configuration"`
-}
-
-type MappingConfig struct {
-	BaseURI          string                 `json:"base_uri"` // used when mapping all
-	Constructions    []*PropertyConstructor `json:"constructions"`
-	PropertyMappings []*PropertyMapping     `json:"mappings"`
-	MapAllFromItem   bool                   `json:"map_all_from_item"` // if true, all properties are mapped from an item
-	MapAllToItem     bool                   `json:"map_to_item"`       // if true, all properties are mapped into an item
-	Custom           map[string]any         `json:"custom"`
+	DatasetName           string                 `json:"dataset_name"`
+	SourceConfig          map[string]any         `json:"source_config"`
+	IncomingMappingConfig *IncomingMappingConfig `json:"incoming_mapping_config"`
+	OutgoingMappingConfig *OutgoingMappingConfig `json:"outgoing_mapping_config"`
 }
 
 // the operations can be one of the following: concat, split, replace, trim, tolower, toupper, regex, slice
@@ -51,15 +43,42 @@ type PropertyConstructor struct {
 	Arguments    []string `json:"args"`
 }
 
-type PropertyMapping struct {
+type IncomingMappingConfig struct {
+	MapAll           bool                           `json:"map_all"`     // if true, all properties are mapped
+	MapAligned       bool                           `json:"map_aligned"` // if true then try and lookup entity properties based on the item property name and the BaseURI prefix
+	Custom           map[string]any                 `json:"custom"`
+	PropertyMappings []*EntityToItemPropertyMapping `json:"property_mappings"`
+	BaseURI          string                         `json:"base_uri"`
+}
+
+type OutgoingMappingConfig struct {
+	BaseURI          string                         `json:"base_uri"` // used when mapping all
+	Constructions    []*PropertyConstructor         `json:"constructions"`
+	PropertyMappings []*ItemToEntityPropertyMapping `json:"property_mappings"`
+	MapAll           bool                           `json:"map_all"` // if true, all properties are mapped
+	Custom           map[string]any                 `json:"custom"`
+}
+
+type EntityToItemPropertyMapping struct {
 	Custom               map[string]any
 	EntityProperty       string `json:"entity_property"`
 	Property             string `json:"property"`
 	Datatype             string `json:"datatype"`
 	IsReference          bool   `json:"is_reference"`
-	UrlValuePattern      string `json:"url_value_pattern"`
 	IsIdentity           bool   `json:"is_identity"`
-	DefaultPropertyValue string `json:"default_value"`
+	DefaultValue         string `json:"default_value"`
+	StripReferencePrefix string `json:"strip_ref_prefix"`
+}
+
+type ItemToEntityPropertyMapping struct {
+	Custom          map[string]any
+	EntityProperty  string `json:"entity_property"`
+	Property        string `json:"property"`
+	Datatype        string `json:"datatype"`
+	IsReference     bool   `json:"is_reference"`
+	UrlValuePattern string `json:"url_value_pattern"`
+	IsIdentity      bool   `json:"is_identity"`
+	DefaultValue    any    `json:"default_value"`
 }
 
 /******************************************************************************/
@@ -187,7 +206,8 @@ func addConfig(mainConfig *Config, partialConfig *Config) {
 				if existingDef.DatasetName == def.DatasetName {
 					exists = true
 					existingDef.SourceConfig = def.SourceConfig
-					existingDef.MappingConfig = def.MappingConfig
+					existingDef.IncomingMappingConfig = def.IncomingMappingConfig
+					existingDef.OutgoingMappingConfig = def.OutgoingMappingConfig
 				}
 				break
 			}
