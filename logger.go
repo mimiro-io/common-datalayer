@@ -87,7 +87,7 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug(message, args...)
 }
 
-func newLogger(conf *Config) Logger {
+func newLogger(serviceName string, format string) Logger {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 		Level:     slog.LevelDebug,
@@ -116,12 +116,12 @@ func newLogger(conf *Config) Logger {
 		},
 	}
 	var outputHandler slog.Handler = slog.NewJSONHandler(os.Stdout, opts)
-	if conf.LayerServiceConfig.LogFormat == "text" {
+	if format == "text" {
 		outputHandler = slog.NewTextHandler(os.Stdout, opts)
 	}
 	log := slog.New(outputHandler).With(
 		"go.version", runtime.Version(),
-		"service", conf.LayerServiceConfig.ServiceName)
+		"service", serviceName)
 	//log = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	return &logger{log}
 }

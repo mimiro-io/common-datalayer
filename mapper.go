@@ -10,11 +10,9 @@ import (
 )
 
 type Mapper struct {
-	logger                Logger
-	incomingMappingConfig *IncomingMappingConfig
-	outgoingMappingConfig *OutgoingMappingConfig
-	// incomingKeyMappings         map[string]*EntityToItemPropertyMapping
-	// outgoingKeyMappings         map[string]*ItemToEntityPropertyMapping
+	logger                      Logger
+	incomingMappingConfig       *IncomingMappingConfig
+	outgoingMappingConfig       *OutgoingMappingConfig
 	itemToEntityCustomTransform []func(item Item, entity *egdm.Entity) error
 	entityToItemCustomTransform []func(entity *egdm.Entity, item Item) error
 }
@@ -27,20 +25,6 @@ func NewMapper(logger Logger, incomingMappingConfig *IncomingMappingConfig, outg
 		itemToEntityCustomTransform: make([]func(item Item, entity *egdm.Entity) error, 0),
 		entityToItemCustomTransform: make([]func(entity *egdm.Entity, item Item) error, 0),
 	}
-
-	/* mapper.incomingKeyMappings = make(map[string]*EntityToItemPropertyMapping)
-	mapper.outgoingKeyMappings = make(map[string]*ItemToEntityPropertyMapping)
-
-	// enable fast lookup of the mappings
-	for _, mapping := range incomingMappingConfig.PropertyMappings {
-		entityPropertyName := mapping.EntityProperty
-		mapper.incomingKeyMappings[entityPropertyName] = mapping
-	}
-
-	for _, mapping := range outgoingMappingConfig.PropertyMappings {
-		propertyName := mapping.Property
-		mapper.outgoingKeyMappings[propertyName] = mapping
-	} */
 
 	return mapper
 }
@@ -158,6 +142,11 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 	// apply mappings
 	for _, mapping := range mapper.outgoingMappingConfig.PropertyMappings {
+
+		if mapping.Property == "" {
+			return fmt.Errorf("property name is required")
+		}
+
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
 		if mapper.outgoingMappingConfig.MapAll {
@@ -180,6 +169,9 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
 				return errors.Wrap(err, "failed to convert identity value to string")
+			}
+			if mapping.UrlValuePattern == "" {
+				return fmt.Errorf("url value pattern is required for identity property")
 			}
 			entity.ID = makeURL(mapping.UrlValuePattern, idValue)
 		} else if mapping.IsReference {
@@ -432,127 +424,3 @@ type Item interface {
 	// GetPropertyNames returns the names of all properties in the item
 	GetPropertyNames() []string
 }
-
-/*
-
-type DataItem struct {
-	raw map[string]any
-}
-
-func (d *DataItem) GetRaw() map[string]any {
-	return d.raw
-}
-
-func (d *DataItem) PutRaw(raw map[string]any) {
-	d.raw = raw
-}
-
-func (d *DataItem) GetValue(name string) any {
-	return d.raw[name]
-}
-
-func (d *DataItem) SetValue(name string, value any) {
-	d.raw[name] = value
-}
-
-type ItemIterator interface {
-	Next() Item
-}
-
-type EntityIterator interface {
-	Next() *egdm.Entity
-	Token() string
-	Close()
-}
-
-type MappingEntityIterator struct {
-	mapper        ItemToEntityMapper
-	rowIterator   ItemIterator
-	customMapping func(mapping *PropertyMapping, item Item, entity egdm.Entity)
-}
-
-func (m MappingEntityIterator) Next() *egdm.Entity {
-	rawItem := m.rowIterator.Next()
-	if rawItem == nil {
-		return nil
-	}
-	res := m.mapper.ItemToEntity(rawItem)
-	return res
-}
-
-func (m MappingEntityIterator) Token() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m MappingEntityIterator) Close() {
-	//TODO implement me
-	panic("implement me")
-}
-
-func NewMappingEntityIterator(
-	mappings []*PropertyMapping,
-	itemIterator ItemIterator,
-	customMapping func(mapping *PropertyMapping, item Item, entity egdm.Entity),
-) *MappingEntityIterator {
-	return &MappingEntityIterator{
-		mapper:        NewGenericEntityMapper(mappings),
-		rowIterator:   itemIterator,
-		customMapping: customMapping,
-	}
-}
-
-type dataItemMapper struct {
-	mappings []*PropertyMapping
-}
-
-func (d dataItemMapper) EntityToItem(entity *egdm.Entity) Item {
-	defaultItem := &DataItem{raw: make(map[string]any)}
-	for _, mapping := range d.mappings {
-		if mapping.IsIdentity {
-			defaultItem.SetValue(mapping.Property, entity.ID)
-		} else {
-			defaultItem.SetValue(mapping.Property, entity.Properties[mapping.EntityProperty])
-		}
-	}
-	return defaultItem
-}
-
-func NewDataItemMapper(mappings []*PropertyMapping) EntityToItemMapper {
-	return &dataItemMapper{mappings: mappings}
-}
-
-type ItemToEntityMapper interface {
-	ItemToEntity(item Item) *egdm.Entity
-}
-type EntityToItemMapper interface {
-	EntityToItem(entity *egdm.Entity) Item
-}
-
-type GenericEntityMapper struct {
-	Mappings []*PropertyMapping
-}
-
-func (em *GenericEntityMapper) ItemToEntity(item Item) *egdm.Entity {
-	entity := egdm.NewEntity()
-	for _, mapping := range em.Mappings {
-		sourcePropertyValue := item.GetValue(mapping.Property)
-		if sourcePropertyValue == nil {
-			continue
-		}
-
-		if mapping.IsIdentity {
-			entity.ID = sourcePropertyValue.(string)
-		} else {
-			entity.Properties[mapping.EntityProperty] = sourcePropertyValue
-		}
-	}
-	return entity
-}
-
-func NewGenericEntityMapper(mappings []*PropertyMapping) *GenericEntityMapper {
-	return &GenericEntityMapper{
-		Mappings: mappings,
-	}
-}
-*/

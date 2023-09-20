@@ -42,7 +42,7 @@ func NewServiceRunner(newLayerService func(config *Config, logger Logger, metric
 	}
 
 	// initialise l
-	l := newLogger(config)
+	l := newLogger(config.LayerServiceConfig.ServiceName, config.LayerServiceConfig.LogFormat)
 
 	metrics, err := newMetrics(config)
 	if err != nil {

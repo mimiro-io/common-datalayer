@@ -5,7 +5,8 @@ go 1.21
 require (
 	github.com/DataDog/datadog-go/v5 v5.3.0
 	github.com/labstack/echo/v4 v4.11.1
-	github.com/mimiro-io/entity-graph-data-model v0.0.0-20230801135044-2b25f4421cc4
+	github.com/mimiro-io/entity-graph-data-model v0.7.0
+	github.com/pkg/errors v0.9.1
 )
 
 require (

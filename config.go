@@ -44,8 +44,8 @@ type PropertyConstructor struct {
 }
 
 type IncomingMappingConfig struct {
-	MapAll           bool                           `json:"map_all"`     // if true, all properties are mapped
-	MapAligned       bool                           `json:"map_aligned"` // if true then try and lookup entity properties based on the item property name and the BaseURI prefix
+	MapAll           bool                           `json:"map_all"`   // if true, all properties are mapped
+	MapNamed         bool                           `json:"map_named"` // if true then try and lookup entity properties based on the item property name and the BaseURI prefix
 	Custom           map[string]any                 `json:"custom"`
 	PropertyMappings []*EntityToItemPropertyMapping `json:"property_mappings"`
 	BaseURI          string                         `json:"base_uri"`
