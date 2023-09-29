@@ -133,10 +133,12 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		}
 	}
 
-	mappedProperties := make(map[string]bool)
 	if mapper.outgoingMappingConfig.MapAll {
+		// iterate over unmapped properties and add them to the entity
 		for _, propertyName := range item.GetPropertyNames() {
-			mappedProperties[propertyName] = false
+			propertyValue := item.GetValue(propertyName)
+			entityPropertyName := mapper.outgoingMappingConfig.BaseURI + propertyName
+			entity.Properties[entityPropertyName] = propertyValue
 		}
 	}
 
@@ -149,9 +151,6 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
-		if mapper.outgoingMappingConfig.MapAll {
-			mappedProperties[propertyName] = true
-		}
 
 		propertyValue, err := getValueFromItemOrConstruct(item, propertyName, constructedProperties)
 		if err != nil {
@@ -161,6 +160,9 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			if mapping.DefaultValue != nil {
 				propertyValue = mapping.DefaultValue
 			} else {
+				if mapping.Required || mapping.IsIdentity {
+					return fmt.Errorf("property %s is required", propertyName)
+				}
 				continue
 			}
 		}
@@ -175,23 +177,38 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			}
 			entity.ID = makeURL(mapping.UrlValuePattern, idValue)
 		} else if mapping.IsReference {
-			// reference property
-			referenceValue, err := stringOfValue(propertyValue)
-			if err != nil {
-				return errors.Wrap(err, "failed to convert reference value to string")
+			if entityPropertyName == "" {
+				return fmt.Errorf("entity property name is required for mapping")
 			}
-			entity.References[entityPropertyName] = makeURL(mapping.UrlValuePattern, referenceValue)
-		} else {
-			// regular property
-			entity.Properties[entityPropertyName] = propertyValue
-		}
-	}
 
-	// iterate over unmapped properties and add them to the entity
-	for propertyName, mapped := range mappedProperties {
-		if !mapped {
-			propertyValue := item.GetValue(propertyName)
-			entityPropertyName := mapper.outgoingMappingConfig.BaseURI + propertyName
+			// reference property
+			var entityPropertyValue any
+
+			switch v := propertyValue.(type) {
+			case []interface{}:
+				entityPropertyValue = make([]string, len(v))
+				for i, val := range v {
+					s, err := stringOfValue(val)
+					if err != nil {
+						return errors.Wrap(err, "failed to convert reference value to string")
+					}
+					entityPropertyValue.([]string)[i] = makeURL(mapping.UrlValuePattern, s)
+				}
+			default:
+				s, err := stringOfValue(propertyValue)
+				if err != nil {
+					return errors.Wrap(err, "failed to convert reference value to string")
+				}
+				entityPropertyValue = makeURL(mapping.UrlValuePattern, s)
+			}
+
+			entity.References[entityPropertyName] = entityPropertyValue
+		} else {
+			if entityPropertyName == "" {
+				return fmt.Errorf("entity property name is required for mapping")
+			}
+
+			// regular property
 			entity.Properties[entityPropertyName] = propertyValue
 		}
 	}
@@ -375,12 +392,31 @@ func stringOfValue(val interface{}) (string, error) {
 	}
 }
 
+// Takes a URL and strips away everything up to the last / or #
+func stripURL(url string) string {
+	if url == "" {
+		return ""
+	}
+	lastSlash := strings.LastIndex(url, "/")
+	lastHash := strings.LastIndex(url, "#")
+	if lastSlash > lastHash {
+		return url[lastSlash+1:]
+	} else if lastHash > lastSlash {
+		return url[lastHash+1:]
+	} else {
+		return url
+	}
+}
+
 func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 
-	mappedProperties := make(map[string]bool)
-	if mapper.incomingMappingConfig.MapAll {
+	// do map named as this is the more general case, then do the property mappings
+	if mapper.incomingMappingConfig.MapNamed {
 		for _, propertyName := range item.GetPropertyNames() {
-			mappedProperties[propertyName] = false
+			entityPropertyName := mapper.incomingMappingConfig.BaseURI + propertyName
+			if propertyValue, ok := entity.Properties[entityPropertyName]; ok {
+				item.SetValue(propertyName, propertyValue)
+			}
 		}
 	}
 
@@ -389,11 +425,35 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 		entityPropertyName := mapping.EntityProperty
 
 		if mapping.IsIdentity {
-			item.SetValue(propertyName, entity.ID)
+			if mapping.StripReferencePrefix {
+				item.SetValue(propertyName, stripURL(entity.ID))
+			} else {
+				item.SetValue(propertyName, entity.ID)
+			}
 		} else if mapping.IsReference {
 			// reference property
-			referenceValue := entity.References[entityPropertyName]
-			item.SetValue(propertyName, referenceValue)
+			if referenceValue, ok := entity.References[entityPropertyName]; ok {
+				switch v := referenceValue.(type) {
+				case []string:
+					values := make([]string, len(v))
+					for i, val := range v {
+						if mapping.StripReferencePrefix {
+							values[i] = stripURL(val)
+						} else {
+							values[i] = val
+						}
+					}
+					item.SetValue(propertyName, values)
+				case string:
+					if mapping.StripReferencePrefix {
+						item.SetValue(propertyName, stripURL(v))
+					} else {
+						item.SetValue(propertyName, v)
+					}
+				default:
+					return fmt.Errorf("unsupported reference type %s", reflect.TypeOf(referenceValue))
+				}
+			}
 		} else {
 			// regular property
 			propertyValue := entity.Properties[entityPropertyName]

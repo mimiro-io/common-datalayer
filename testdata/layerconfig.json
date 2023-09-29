@@ -1,5 +1,5 @@
 {
-  "layer_configuration": {
+  "layer_config": {
     "port": "8080",
     "service_name": "sample"
   }

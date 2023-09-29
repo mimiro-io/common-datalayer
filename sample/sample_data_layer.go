@@ -58,8 +58,7 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 
 	// iterate over the dataset definitions in the configuration
 	for _, dsd := range conf.DatasetDefinitions {
-		// create a new sample dataset
-		mapper := layer.NewMapper(dsd.Constructions, dsd.Mappings)
+		mapper := layer.NewMapper(logger, dsd.IncomingMappingConfig, dsd.OutgoingMappingConfig)
 		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mapper: mapper}
 	}
 
@@ -89,7 +88,7 @@ func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.Layer
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
-				mapper := layer.NewMapper(dsd.Constructions, dsd.Mappings)
+				mapper := layer.NewMapper(dl.logger, dsd.IncomingMappingConfig, dsd.OutgoingMappingConfig)
 				v.mapper = mapper
 			}
 		}
@@ -128,7 +127,7 @@ func (ds *SampleDataset) FullSync(_ context.Context, _ layer.BatchInfo) (layer.D
 }
 
 func (ds *SampleDataset) Incremental(ctx context.Context) (layer.DatasetWriter, layer.LayerError) {
-	return nil, nil
+	return NewSampleDatasetWriter(ds, ds.mapper, ctx, layer.BatchInfo{}), nil
 }
 
 type SampleEntityIterator struct {
@@ -212,6 +211,14 @@ func (do *DataObject) GetValue(name string) any {
 
 func (do *DataObject) NativeItem() any {
 	return do
+}
+
+func (do *DataObject) GetPropertyNames() []string {
+	var names []string
+	for k := range do.Props {
+		names = append(names, k)
+	}
+	return names
 }
 
 /*********************************************************************************************************************/

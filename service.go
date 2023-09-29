@@ -20,53 +20,59 @@ func (serviceRunner *ServiceRunner) WithConfigLocation(configLocation string) *S
 
 func NewServiceRunner(newLayerService func(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)) *ServiceRunner {
 	runner := &ServiceRunner{}
+	runner.createService = newLayerService
+	return runner
+}
 
-	configPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
-	if found {
-		runner.configLocation = configPath
-	} else {
-		runner.configLocation = "./config"
+func (serviceRunner *ServiceRunner) configure() {
+
+	if serviceRunner.configLocation == "" {
+		configPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
+		if found {
+			serviceRunner.configLocation = configPath
+		} else {
+			serviceRunner.configLocation = "./config"
+		}
 	}
 
-	config, err := loadConfig(configPath)
+	config, err := loadConfig(serviceRunner.configLocation)
 	if err != nil {
 		panic(err)
 	}
 
 	// enrich config specific for layer
-	if runner.enrichConfig != nil {
-		err = runner.enrichConfig(config)
+	if serviceRunner.enrichConfig != nil {
+		err = serviceRunner.enrichConfig(config)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	// initialise l
-	l := newLogger(config.LayerServiceConfig.ServiceName, config.LayerServiceConfig.LogFormat)
+	// initialise logger
+	logger := newLogger(config.LayerServiceConfig.ServiceName, config.LayerServiceConfig.LogFormat)
+	serviceRunner.logger = logger
 
 	metrics, err := newMetrics(config)
 	if err != nil {
 		panic(err)
 	}
 
-	layerService, err := newLayerService(config, l, metrics)
+	layerService, err := serviceRunner.createService(config, logger, metrics)
 	if err != nil {
 		panic(err)
 	}
 
 	// create and start config updater
-	runner.configUpdater, err = newConfigUpdater(config, runner.enrichConfig, l, layerService)
+	serviceRunner.configUpdater, err = newConfigUpdater(config, serviceRunner.enrichConfig, logger, layerService)
 	if err != nil {
 		panic(err)
 	}
 
 	// create web service hook up with the service core
-	runner.webService, err = newDataLayerWebService(config, l, metrics, layerService)
+	serviceRunner.webService, err = newDataLayerWebService(config, logger, metrics, layerService)
 	if err != nil {
 		panic(err)
 	}
-
-	return runner
 }
 
 type ServiceRunner struct {
@@ -76,19 +82,34 @@ type ServiceRunner struct {
 	enrichConfig   func(config *Config) error
 	webService     *dataLayerWebService
 	configUpdater  *configUpdater
+	createService  func(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)
 }
 
 func (serviceRunner *ServiceRunner) Start() error {
+	// configure the service
+	serviceRunner.configure()
+
 	// start the service
 	err := serviceRunner.webService.Start()
 	if err != nil {
 		return err
 	}
-	err = serviceRunner.andWait()
-	if err != nil {
-		return err
-	}
+
 	return nil
+}
+
+func (serviceRunner *ServiceRunner) StartAndWait() {
+	// configure the service
+	serviceRunner.configure()
+
+	// start the service
+	err := serviceRunner.webService.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	// and wait for ctrl-c
+	serviceRunner.andWait()
 }
 
 func (serviceRunner *ServiceRunner) Stop() error {
@@ -109,10 +130,9 @@ func (serviceRunner *ServiceRunner) Stop() error {
 	return nil
 }
 
-func (serviceRunner *ServiceRunner) andWait() error {
+func (serviceRunner *ServiceRunner) andWait() {
 	// handle shutdown, this call blocks and keeps the application running
 	waitForStop(serviceRunner.logger, serviceRunner.stoppable...)
-	return nil
 }
 
 //	 waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
@@ -121,7 +141,7 @@ func waitForStop(logger Logger, stoppable ...Stoppable) {
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
-	logger.Info("Application stopping!")
+	logger.Info("Data Layer stopping")
 
 	shutdownCtx := context.Background()
 	wg := sync.WaitGroup{}
@@ -132,12 +152,12 @@ func waitForStop(logger Logger, stoppable ...Stoppable) {
 			defer wg.Done()
 			err := s.Stop(shutdownCtx)
 			if err != nil {
-				logger.Error("Stopping Application failed: %+v", err)
+				logger.Error("Stopping Data Layer failed: %+v", err)
 				os.Exit(2)
 			}
 		}()
 	}
 	wg.Wait()
-	logger.Info("Application stopped!")
+	logger.Info("Data Layer stopped")
 	os.Exit(0)
 }

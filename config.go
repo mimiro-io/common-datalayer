@@ -30,7 +30,7 @@ type LayerServiceConfig struct {
 }
 
 type DatasetDefinition struct {
-	DatasetName           string                 `json:"dataset_name"`
+	DatasetName           string                 `json:"name"`
 	SourceConfig          map[string]any         `json:"source_config"`
 	IncomingMappingConfig *IncomingMappingConfig `json:"incoming_mapping_config"`
 	OutgoingMappingConfig *OutgoingMappingConfig `json:"outgoing_mapping_config"`
@@ -44,11 +44,10 @@ type PropertyConstructor struct {
 }
 
 type IncomingMappingConfig struct {
-	MapAll           bool                           `json:"map_all"`   // if true, all properties are mapped
 	MapNamed         bool                           `json:"map_named"` // if true then try and lookup entity properties based on the item property name and the BaseURI prefix
-	Custom           map[string]any                 `json:"custom"`
 	PropertyMappings []*EntityToItemPropertyMapping `json:"property_mappings"`
 	BaseURI          string                         `json:"base_uri"`
+	Custom           map[string]any                 `json:"custom"`
 }
 
 type OutgoingMappingConfig struct {
@@ -61,17 +60,19 @@ type OutgoingMappingConfig struct {
 
 type EntityToItemPropertyMapping struct {
 	Custom               map[string]any
+	Required             bool   `json:"required"`
 	EntityProperty       string `json:"entity_property"`
 	Property             string `json:"property"`
 	Datatype             string `json:"datatype"`
 	IsReference          bool   `json:"is_reference"`
 	IsIdentity           bool   `json:"is_identity"`
 	DefaultValue         string `json:"default_value"`
-	StripReferencePrefix string `json:"strip_ref_prefix"`
+	StripReferencePrefix bool   `json:"strip_ref_prefix"`
 }
 
 type ItemToEntityPropertyMapping struct {
 	Custom          map[string]any
+	Required        bool   `json:"required"`
 	EntityProperty  string `json:"entity_property"`
 	Property        string `json:"property"`
 	Datatype        string `json:"datatype"`
@@ -140,6 +141,20 @@ func loadConfig(configPath string) (*Config, error) {
 			}
 			addConfig(c, config)
 		}
+	}
+
+	// Initialize any missing config components as some values may get set later
+	// and the config is compared to see if it has changed, so need to make sure they exist
+	if c.LayerServiceConfig == nil {
+		c.LayerServiceConfig = &LayerServiceConfig{}
+	}
+
+	if c.NativeSystemConfig == nil {
+		c.NativeSystemConfig = make(map[string]any)
+	}
+
+	if c.DatasetDefinitions == nil {
+		c.DatasetDefinitions = make([]*DatasetDefinition, 0)
 	}
 
 	addEnvOverrides(c)

@@ -1,15 +1,13 @@
 {
   "dataset_definitions" : [
     {
-      "dataset_name" : "sdb.animal",
+      "name" : "sdb.animal",
       "source_configuration" : {
         "table_name" : "animal",
         "query" : "select * from animal",
         "since_query" : "select * from animal where modified > ?",
         "snapshot_query" : "select * from animal where modified > ?",
-        "base_property_uri" : "http://data.mimiro.io/animal/",
-        "default_type" : "http://data.mimiro.io/Animal",
-        "map_all" : true
+        "default_type" : "http://data.mimiro.io/Animal"
       },
       "mappings" : [
         {

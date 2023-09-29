@@ -23,8 +23,11 @@ func newConfigUpdater(
 	enrichConfig func(config *Config) error,
 	l Logger,
 	listeners ...DataLayerService) (*configUpdater, error) {
+
 	u := &configUpdater{logger: l}
 	u.ticker = time.NewTicker(5 * time.Second)
+	u.config = config
+
 	go func() {
 		for {
 			select {

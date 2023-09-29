@@ -1,0 +1,30 @@
+{
+  "layer_config": {
+    "port": "21712",
+    "service_name": "sample_service"
+  },
+  "system_config" : {
+    "in_memory" : true
+  },
+  "dataset_definitions": [
+    {
+      "name": "sample",
+      "source_config": {
+        "strip_props": true
+      },
+      "outgoing_mapping_config" : {
+        "baseURI" : "http://data.sample.org/",
+        "property_mapping" : [
+        {
+          "property": "id",
+          "is_identity": true,
+          "url_value_pattern": "http://data.sample.org/things/{value}"
+        },
+        {
+          "entity_property": "name",
+          "property": "name"
+        }]
+      }
+    }
+  ]
+}
