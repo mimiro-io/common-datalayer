@@ -12,9 +12,22 @@
       "source_config": {
         "strip_props": true
       },
+      "incoming_mapping_config" : {
+        "base_uri" : "http://data.sample.org/",
+        "property_mappings" : [
+        {
+          "property": "id",
+          "is_identity": true,
+          "url_value_pattern": "http://data.sample.org/things/{value}"
+        },
+        {
+          "entity_property": "name",
+          "property": "name"
+        }]
+      },
       "outgoing_mapping_config" : {
-        "baseURI" : "http://data.sample.org/",
-        "property_mapping" : [
+        "base_uri" : "http://data.sample.org/",
+        "property_mappings" : [
         {
           "property": "id",
           "is_identity": true,

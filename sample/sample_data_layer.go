@@ -110,8 +110,7 @@ func (ds *SampleDataset) Name() string {
 }
 
 func (ds *SampleDataset) Changes(since string, take int, _ bool) (layer.EntityIterator, layer.LayerError) {
-	// create a new entity iterator
-	return &SampleEntityIterator{data: ds.data}, nil
+	return &SampleEntityIterator{data: ds.data, mapper: ds.mapper}, nil
 }
 
 func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator, layer.LayerError) {

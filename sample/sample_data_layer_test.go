@@ -20,7 +20,7 @@ func TestStartStopSampleDataLayer(t *testing.T) {
 		t.Error(err)
 	}
 
-	serviceRunner.Stop()
+	err = serviceRunner.Stop()
 	if err != nil {
 		t.Error(err)
 	}
@@ -47,7 +47,7 @@ func TestNewSampleDataLayer(t *testing.T) {
 
 	// Post data
 	reader := strings.NewReader(`[
-		{"id": "@context", "namespaces": {"_": "http://sample/"}},
+		{"id": "@context", "namespaces": {"_": "http://data.sample.org/"}},
 		{"id": "187", "props": {"name": "John Doe"}}
 	]`)
 	resp, err = http.Post("http://localhost:21712/datasets/sample/entities", "application/json", reader)

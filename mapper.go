@@ -43,93 +43,99 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	// apply constructions
 	constructedProperties := make(map[string]any)
 
-	for _, construction := range mapper.outgoingMappingConfig.Constructions {
-		if construction.Operation == "concat" {
-			if len(construction.Arguments) != 2 {
-				return fmt.Errorf("concat operation requires two arguments")
+	if mapper.outgoingMappingConfig == nil {
+		return fmt.Errorf("outgoing mapping config is nil")
+	}
+
+	if mapper.outgoingMappingConfig.Constructions != nil {
+		for _, construction := range mapper.outgoingMappingConfig.Constructions {
+			if construction.Operation == "concat" {
+				if len(construction.Arguments) != 2 {
+					return fmt.Errorf("concat operation requires two arguments")
+				}
+				concatedValue, err := concat(item.GetValue(construction.Arguments[0]), item.GetValue(construction.Arguments[1]))
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = concatedValue
+			} else if construction.Operation == "split" {
+				if len(construction.Arguments) != 2 {
+					return fmt.Errorf("split operation requires two arguments")
+				}
+				spliter := construction.Arguments[1]
+				splitValue, err := split(item.GetValue(construction.Arguments[0]), spliter)
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = splitValue
+			} else if construction.Operation == "replace" {
+				if len(construction.Arguments) != 3 {
+					return fmt.Errorf("replace operation requires three arguments")
+				}
+				replacedValue, err := replace(item.GetValue(construction.Arguments[0]), construction.Arguments[1], construction.Arguments[2])
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = replacedValue
+			} else if construction.Operation == "trim" {
+				if len(construction.Arguments) != 1 {
+					return fmt.Errorf("trim operation requires one argument")
+				}
+				trimmedValue, err := trim(item.GetValue(construction.Arguments[0]))
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = trimmedValue
+			} else if construction.Operation == "tolower" {
+				if len(construction.Arguments) != 1 {
+					return fmt.Errorf("tolower operation requires one argument")
+				}
+				tolowerValue, err := tolower(item.GetValue(construction.Arguments[0]))
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = tolowerValue
+			} else if construction.Operation == "toupper" {
+				if len(construction.Arguments) != 1 {
+					return fmt.Errorf("toupper operation requires one argument")
+				}
+				toupperValue, err := toupper(item.GetValue(construction.Arguments[0]))
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = toupperValue
+			} else if construction.Operation == "regex" {
+				if len(construction.Arguments) != 2 {
+					return fmt.Errorf("regex operation requires two arguments")
+				}
+				regexValue, err := regex(item.GetValue(construction.Arguments[0]), construction.Arguments[1])
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = regexValue
+			} else if construction.Operation == "slice" {
+				if len(construction.Arguments) != 3 {
+					return fmt.Errorf("slice operation requires three arguments")
+				}
+				start, err := intOfValue(construction.Arguments[1])
+				if err != nil {
+					return err
+				}
+				end, err := intOfValue(construction.Arguments[2])
+				if err != nil {
+					return err
+				}
+				slicedValue, err := slice(item.GetValue(construction.Arguments[0]), start, end)
+				if err != nil {
+					return err
+				}
+				constructedProperties[construction.PropertyName] = slicedValue
+			} else if construction.Operation == "literal" {
+				if len(construction.Arguments) != 1 {
+					return fmt.Errorf("literal operation requires one argument")
+				}
+				constructedProperties[construction.PropertyName] = construction.Arguments[0]
 			}
-			concatedValue, err := concat(item.GetValue(construction.Arguments[0]), item.GetValue(construction.Arguments[1]))
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = concatedValue
-		} else if construction.Operation == "split" {
-			if len(construction.Arguments) != 2 {
-				return fmt.Errorf("split operation requires two arguments")
-			}
-			spliter := construction.Arguments[1]
-			splitValue, err := split(item.GetValue(construction.Arguments[0]), spliter)
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = splitValue
-		} else if construction.Operation == "replace" {
-			if len(construction.Arguments) != 3 {
-				return fmt.Errorf("replace operation requires three arguments")
-			}
-			replacedValue, err := replace(item.GetValue(construction.Arguments[0]), construction.Arguments[1], construction.Arguments[2])
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = replacedValue
-		} else if construction.Operation == "trim" {
-			if len(construction.Arguments) != 1 {
-				return fmt.Errorf("trim operation requires one argument")
-			}
-			trimmedValue, err := trim(item.GetValue(construction.Arguments[0]))
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = trimmedValue
-		} else if construction.Operation == "tolower" {
-			if len(construction.Arguments) != 1 {
-				return fmt.Errorf("tolower operation requires one argument")
-			}
-			tolowerValue, err := tolower(item.GetValue(construction.Arguments[0]))
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = tolowerValue
-		} else if construction.Operation == "toupper" {
-			if len(construction.Arguments) != 1 {
-				return fmt.Errorf("toupper operation requires one argument")
-			}
-			toupperValue, err := toupper(item.GetValue(construction.Arguments[0]))
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = toupperValue
-		} else if construction.Operation == "regex" {
-			if len(construction.Arguments) != 2 {
-				return fmt.Errorf("regex operation requires two arguments")
-			}
-			regexValue, err := regex(item.GetValue(construction.Arguments[0]), construction.Arguments[1])
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = regexValue
-		} else if construction.Operation == "slice" {
-			if len(construction.Arguments) != 3 {
-				return fmt.Errorf("slice operation requires three arguments")
-			}
-			start, err := intOfValue(construction.Arguments[1])
-			if err != nil {
-				return err
-			}
-			end, err := intOfValue(construction.Arguments[2])
-			if err != nil {
-				return err
-			}
-			slicedValue, err := slice(item.GetValue(construction.Arguments[0]), start, end)
-			if err != nil {
-				return err
-			}
-			constructedProperties[construction.PropertyName] = slicedValue
-		} else if construction.Operation == "literal" {
-			if len(construction.Arguments) != 1 {
-				return fmt.Errorf("literal operation requires one argument")
-			}
-			constructedProperties[construction.PropertyName] = construction.Arguments[0]
 		}
 	}
 
@@ -151,6 +157,12 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
+		if !strings.HasPrefix(entityPropertyName, "http") {
+			if mapper.outgoingMappingConfig.BaseURI == "" {
+				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
+			}
+			entityPropertyName = mapper.outgoingMappingConfig.BaseURI + entityPropertyName
+		}
 
 		propertyValue, err := getValueFromItemOrConstruct(item, propertyName, constructedProperties)
 		if err != nil {
@@ -423,6 +435,12 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 	for _, mapping := range mapper.incomingMappingConfig.PropertyMappings {
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
+		if !strings.HasPrefix(entityPropertyName, "http") {
+			if mapper.incomingMappingConfig.BaseURI == "" {
+				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
+			}
+			entityPropertyName = mapper.incomingMappingConfig.BaseURI + entityPropertyName
+		}
 
 		if mapping.IsIdentity {
 			if mapping.StripReferencePrefix {

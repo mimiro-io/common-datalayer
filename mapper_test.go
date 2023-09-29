@@ -468,6 +468,48 @@ func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
 	}
 }
 
+func TestMapIncomingItemWithBaseURIPropertyMapping(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	incomingConfig := &IncomingMappingConfig{
+		BaseURI:          "http://data.example.com/schema/",
+		PropertyMappings: make([]*EntityToItemPropertyMapping, 0),
+	}
+
+	incomingConfig.PropertyMappings = append(incomingConfig.PropertyMappings,
+		&EntityToItemPropertyMapping{
+			EntityProperty: "name",
+			Property:       "name",
+		},
+		&EntityToItemPropertyMapping{
+			Property:             "id",
+			IsIdentity:           true,
+			StripReferencePrefix: true,
+		})
+
+	// make the entity
+	entity := egdm.NewEntity()
+	entity.ID = "http://data.example.com/1"
+	entity.Properties["http://data.example.com/schema/name"] = "homer"
+	entity.Properties["http://data.example.com/schema/id"] = "1"
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	err := mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item.GetValue("id") != "1" {
+		t.Error("item property id should be 1")
+	}
+
+	if item.GetValue("name") != "homer" {
+		t.Error("item property name should be homer")
+	}
+}
+
 // Test Incoming property mapping with MapNamed
 func TestMapIncomingItemWithPropertyMappingAndMapNamed(t *testing.T) {
 	logger := newLogger("testService", "text")

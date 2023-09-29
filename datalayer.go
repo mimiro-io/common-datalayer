@@ -22,9 +22,9 @@ type DataLayerService interface {
 }
 
 type BatchInfo struct {
-	Id          string
-	BatchId     string
-	IsLastBatch bool
+	SyncId       string
+	IsLastBatch  bool
+	IsStartBatch bool
 }
 
 type EntityIterator interface {
