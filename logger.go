@@ -45,21 +45,22 @@ func (sm StatsdMetrics) Gauge(name string, value float64, tags []string, rate in
 }
 
 func newMetrics(conf *Config) (Metrics, error) {
-	var clientInt statsd.ClientInterface
-	if conf.ApplicationConfig.StatsdEnabled() {
-		client, err := statsd.New(conf.ApplicationConfig.StatsdAgentAddress(),
-			statsd.WithNamespace(conf.ApplicationConfig.ServiceName()),
-			statsd.WithTags([]string{"application:" + conf.ApplicationConfig.ServiceName()}))
+	var client statsd.ClientInterface
+	if conf.LayerServiceConfig.StatsdEnabled {
+		c, err := statsd.New(conf.LayerServiceConfig.StatsdAgentAddress,
+			statsd.WithNamespace(conf.LayerServiceConfig.ServiceName),
+			statsd.WithTags([]string{"application:" + conf.LayerServiceConfig.ServiceName}))
+
 		if err != nil {
 			return nil, err
 		}
 
-		clientInt = client
+		client = c
 	} else {
-		clientInt = &statsd.NoOpClient{}
+		client = &statsd.NoOpClient{}
 	}
 
-	return &StatsdMetrics{client: clientInt}, nil
+	return &StatsdMetrics{client: client}, nil
 }
 
 type logger struct {
@@ -86,7 +87,7 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug(message, args...)
 }
 
-func newLogger(conf *Config) Logger {
+func newLogger(serviceName string, format string) Logger {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 		Level:     slog.LevelDebug,
@@ -115,12 +116,12 @@ func newLogger(conf *Config) Logger {
 		},
 	}
 	var outputHandler slog.Handler = slog.NewJSONHandler(os.Stdout, opts)
-	if conf.ApplicationConfig.Environment() == "local" {
+	if format == "text" {
 		outputHandler = slog.NewTextHandler(os.Stdout, opts)
 	}
 	log := slog.New(outputHandler).With(
 		"go.version", runtime.Version(),
-		"service", conf.ApplicationConfig.ServiceName())
+		"service", serviceName)
 	//log = slog.New(slog.NewTextHandler(os.Stdout, nil))
 	return &logger{log}
 }

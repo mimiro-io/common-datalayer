@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -13,7 +12,7 @@ import (
 
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
 func EnrichConfig(config *layer.Config) error {
-	//config.ApplicationConfig["env"] = "local"
+	config.NativeSystemConfig["env"] = "local"
 	return nil
 }
 
@@ -59,21 +58,21 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 
 	// iterate over the dataset definitions in the configuration
 	for _, dsd := range conf.DatasetDefinitions {
-		// create a new sample dataset
-		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mappings: dsd.Mappings}
+		mapper := layer.NewMapper(logger, dsd.IncomingMappingConfig, dsd.OutgoingMappingConfig)
+		sampleDataLayer.datasets[dsd.DatasetName] = &SampleDataset{dsName: dsd.DatasetName, mapper: mapper}
 	}
 
 	// loop to create 20 objects
 	for i := 0; i < 20; i++ {
 		// create a data object
-		dataObject := DataObject{ID: "ID" + strconv.Itoa(i), Props: make(map[string]any)}
+		dataObject := &DataObject{ID: "ID" + strconv.Itoa(i), Props: make(map[string]any)}
 
 		// add some properties to the data object
 		dataObject.Props["name"] = "name" + strconv.Itoa(i)
 		dataObject.Props["description"] = "description" + strconv.Itoa(i)
 
 		// add the data object to the sample dataset
-		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject.AsBytes())
+		sampleDataLayer.datasets["sample"].data = append(sampleDataLayer.datasets["sample"].data, dataObject)
 	}
 
 	logger.Info(fmt.Sprintf("Initialized sample layer with %v objects", len(sampleDataLayer.datasets["sample"].data)))
@@ -84,14 +83,13 @@ func NewSampleDataLayer(conf *layer.Config, logger layer.Logger, metrics layer.M
 	return sampleDataLayer, nil
 }
 
-// Initialize is called by the core service when the configuration is loaded.
-// can be called many times if the configuration is reloaded
 func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.LayerError {
 	// just update mappings in this sample. no new dataset definitions are expected
 	for k, v := range dl.datasets {
 		for _, dsd := range config.DatasetDefinitions {
 			if k == dsd.DatasetName {
-				v.mappings = dsd.Mappings
+				mapper := layer.NewMapper(dl.logger, dsd.IncomingMappingConfig, dsd.OutgoingMappingConfig)
+				v.mapper = mapper
 			}
 		}
 	}
@@ -102,25 +100,17 @@ func (dl *SampleDataLayer) UpdateConfiguration(config *layer.Config) layer.Layer
 
 // SampleDataset is a sample implementation of the Dataset interface, it provides a simple in-memory dataset in this case
 type SampleDataset struct {
-	dsName   string
-	mappings []*layer.EntityPropertyMapping
-	data     [][]byte
+	dsName string
+	mapper *layer.Mapper
+	data   []*DataObject
 }
 
 func (ds *SampleDataset) Name() string {
 	return ds.dsName
 }
 
-// GetChanges returns an iterator over the changes since the given timestamp,
-// The implementation uses the provided MappingEntityIterator and a custom DataObjectIterator
-// to map the data objects to entities
 func (ds *SampleDataset) Changes(since string, take int, _ bool) (layer.EntityIterator, layer.LayerError) {
-	data := ds.data
-	entityIterator := layer.NewMappingEntityIterator(
-		ds.mappings,
-		NewDataObjectIterator(data),
-		nil)
-	return entityIterator, nil
+	return &SampleEntityIterator{data: ds.data, mapper: ds.mapper}, nil
 }
 
 func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator, layer.LayerError) {
@@ -136,39 +126,60 @@ func (ds *SampleDataset) FullSync(_ context.Context, _ layer.BatchInfo) (layer.D
 }
 
 func (ds *SampleDataset) Incremental(ctx context.Context) (layer.DatasetWriter, layer.LayerError) {
-	writer := NewSampleDatasetWriter(ds, layer.NewDataItemMapper(ds.mappings), ctx)
-	return writer, nil
+	return NewSampleDatasetWriter(ds, ds.mapper, ctx, layer.BatchInfo{}), nil
+}
+
+type SampleEntityIterator struct {
+	mapper *layer.Mapper
+	data   []*DataObject
+	index  int
+}
+
+func (sei *SampleEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
+	for sei.index < len(sei.data) {
+		dataObject := sei.data[sei.index]
+		sei.index++
+		entity := &egdm.Entity{Properties: make(map[string]any)}
+		err := sei.mapper.MapItemToEntity(dataObject, entity)
+		if err != nil {
+			return nil, layer.Errorf(layer.LayerErrorInternal, "error mapping data object %s", dataObject.ID)
+		}
+		return entity, nil
+	}
+	return nil, nil
+}
+
+func (sei *SampleEntityIterator) Token() (string, layer.LayerError) {
+	return "", nil
+}
+
+func (sei *SampleEntityIterator) Close() layer.LayerError {
+	return nil
 }
 
 type SampleDatasetWriter struct {
-	ds     *SampleDataset
-	mapper layer.EntityToItemMapper
-	ctx    context.Context
+	ds        *SampleDataset
+	mapper    *layer.Mapper
+	ctx       context.Context
+	batchInfo layer.BatchInfo
 }
 
-func NewSampleDatasetWriter(ds *SampleDataset, mapper layer.EntityToItemMapper, ctx context.Context) *SampleDatasetWriter {
-	return &SampleDatasetWriter{ds: ds, mapper: mapper, ctx: ctx}
+func NewSampleDatasetWriter(ds *SampleDataset, mapper *layer.Mapper, ctx context.Context, batchInfo layer.BatchInfo) *SampleDatasetWriter {
+	return &SampleDatasetWriter{ds: ds, mapper: mapper, ctx: ctx, batchInfo: batchInfo}
 }
 
 func (sdw *SampleDatasetWriter) Close() layer.LayerError {
-	select {
-	case <-sdw.ctx.Done():
-		return layer.Err(sdw.ctx.Err(), layer.LayerErrorInternal)
-	default:
-		return nil
-	}
+	return nil
 }
 
 func (sdw *SampleDatasetWriter) Write(entity *egdm.Entity) layer.LayerError {
-	// map to item
-	item := sdw.mapper.EntityToItem(entity)
-
-	do := &DataObject{}
-	if item.GetValue("id") != nil {
-		do.ID = item.GetValue("id").(string)
+	// convert to DataObject
+	dataObject := &DataObject{ID: entity.ID, Props: make(map[string]any)}
+	err := sdw.mapper.MapEntityToItem(entity, dataObject)
+	if err != nil {
+		return layer.Err(err, layer.LayerErrorInternal)
 	}
-	do.Props = item.GetRaw()
-	sdw.ds.data = append(sdw.ds.data, do.AsBytes())
+	sdw.ds.data = append(sdw.ds.data, dataObject)
 	return nil
 }
 
@@ -182,50 +193,31 @@ type DataObject struct {
 	Props map[string]any
 }
 
-func (d *DataObject) AsBytes() []byte {
-	b, _ := json.Marshal(d)
-	return b
+func (do *DataObject) SetValue(name string, value any) {
+	if name == "id" {
+		do.ID = value.(string)
+	} else {
+		do.Props[name] = value
+	}
+}
+
+func (do *DataObject) GetValue(name string) any {
+	if name == "id" {
+		return do.ID
+	}
+	return do.Props[name]
+}
+
+func (do *DataObject) NativeItem() any {
+	return do
+}
+
+func (do *DataObject) GetPropertyNames() []string {
+	var names []string
+	for k := range do.Props {
+		names = append(names, k)
+	}
+	return names
 }
 
 /*********************************************************************************************************************/
-
-// DataObjectIterator is a sample implementation of the ItemIterator interface
-// This is the glue between the data objects and the entity mapping
-type DataObjectIterator struct {
-	objects [][]byte
-	pos     int
-}
-
-func (doi *DataObjectIterator) Token() string {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (doi *DataObjectIterator) Close() {
-	//TODO implement me
-	panic("implement me")
-}
-
-func NewDataObjectIterator(objects [][]byte) *DataObjectIterator {
-	doi := &DataObjectIterator{}
-	doi.objects = objects
-	doi.pos = 0
-	return doi
-}
-
-func (doi *DataObjectIterator) Next() layer.Item {
-	if doi.pos >= len(doi.objects) {
-		return nil
-	}
-	b := doi.objects[doi.pos]
-	doi.pos++
-	obj := DataObject{}
-	err := json.Unmarshal(b, &obj)
-	if err != nil {
-		panic(err)
-	}
-	res := &layer.DataItem{}
-	res.PutRaw(obj.Props)
-	res.SetValue("id", obj.ID)
-	return res
-}

@@ -10,8 +10,32 @@ import (
 	common_datalayer "github.com/mimiro-io/common-datalayer"
 )
 
+func TestStartStopSampleDataLayer(t *testing.T) {
+
+	configFile := "./config" //filepath.Join(filepath.Dir(filename), "config")
+	serviceRunner := common_datalayer.NewServiceRunner(NewSampleDataLayer)
+	serviceRunner.WithConfigLocation(configFile)
+	err := serviceRunner.Start()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = serviceRunner.Stop()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func TestNewSampleDataLayer(t *testing.T) {
-	service := common_datalayer.Start(NewSampleDataLayer, common_datalayer.ConfigFileOption("sample_config.json"))
+
+	configFile := "./config"
+
+	serviceRunner := common_datalayer.NewServiceRunner(NewSampleDataLayer)
+	serviceRunner.WithConfigLocation(configFile)
+	err := serviceRunner.Start()
+	if err != nil {
+		t.Error(err)
+	}
 
 	// List datasets
 	resp, err := http.Get("http://localhost:21712/datasets")
@@ -23,7 +47,7 @@ func TestNewSampleDataLayer(t *testing.T) {
 
 	// Post data
 	reader := strings.NewReader(`[
-		{"id": "@context", "namespaces": {"_": "http://sample/"}},
+		{"id": "@context", "namespaces": {"_": "http://data.sample.org/"}},
 		{"id": "187", "props": {"name": "John Doe"}}
 	]`)
 	resp, err = http.Post("http://localhost:21712/datasets/sample/entities", "application/json", reader)
@@ -38,5 +62,5 @@ func TestNewSampleDataLayer(t *testing.T) {
 	fmt.Println("content: ", string(content))
 	println()
 
-	service.Stop()
+	serviceRunner.Stop()
 }

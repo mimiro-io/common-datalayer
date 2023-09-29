@@ -18,11 +18,10 @@ import (
 type dataLayerWebService struct {
 	// service specific service core
 	datalayerService DataLayerService
-
-	e       *echo.Echo
-	metrics Metrics
-	logger  Logger
-	config  *Config
+	e                *echo.Echo
+	metrics          Metrics
+	logger           Logger
+	config           *Config
 }
 
 func newDataLayerWebService(config *Config, logger Logger, metrics Metrics, dataLayerService DataLayerService) (*dataLayerWebService, error) {
@@ -124,7 +123,7 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 }
 
 func (ws *dataLayerWebService) Start() error {
-	port := ws.config.ApplicationConfig.HttpPort()
+	port := ws.config.LayerServiceConfig.Port
 	ws.logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
 		_ = ws.e.Start(":" + port)
@@ -142,6 +141,13 @@ func (ws *dataLayerWebService) health(c echo.Context) error {
 	return c.String(http.StatusOK, "UP")
 }
 
+func getBoolFromString(s string) bool {
+	if strings.ToLower(s) == "true" {
+		return true
+	}
+	return false
+}
+
 func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	datasetName, _ := url.QueryUnescape(c.Param("dataset"))
 	ws.logger.Info(fmt.Sprintf("POST to dataset %s", datasetName))
@@ -154,28 +160,42 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return echo.NewHTTPError(http.StatusNotFound, "dataset not found")
 	}
-	/*definition := ws.config.GetDatasetDefinition(datasetName)
-	if definition == nil {
-		ws.logger.Error("could not find dataset definition " + datasetName)
-		return echo.NewHTTPError(http.StatusBadRequest, "could not find dataset definition "+datasetName)
-	} */
 
-	//	mappings := definition.Mappings
-	// 	mapper := NewDataItemMapper(mappings)
-	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
-	// always want to exapand URIs as the context is not passed in to the dataset writer
-	// mappings are always full URI mappings
-	parser.WithExpandURIs()
-	writer, err := ds.Incremental(context.Background())
-	if err != nil {
-		ws.logger.Warn(err.Error())
-		return echo.NewHTTPError(http.StatusBadRequest, "could not create dataset writer")
+	// get UDA full sync headers
+	udaFullSyncStart := c.Request().Header.Get("universal-data-api-full-sync-start")
+	udaFullSyncEnd := c.Request().Header.Get("universal-data-api-full-sync-end")
+	udaFullSyncId := c.Request().Header.Get("universal-data-api-full-sync-id")
+
+	// make batch info
+	var batchInfo BatchInfo
+
+	if udaFullSyncId != "" {
+		batchInfo = BatchInfo{
+			IsStartBatch: getBoolFromString(udaFullSyncStart),
+			IsLastBatch:  getBoolFromString(udaFullSyncEnd),
+			SyncId:       udaFullSyncId,
+		}
 	}
 
+	var writer DatasetWriter
+
+	if udaFullSyncId != "" {
+		writer, err = ds.FullSync(context.Background(), batchInfo)
+	} else {
+		writer, err = ds.Incremental(context.Background())
+	}
+	if err != nil {
+		ws.logger.Warn(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "could not create dataset writer")
+	}
+
+	parser := egdm.NewEntityParser(egdm.NewNamespaceContext())
+	parser.WithExpandURIs()
+
 	err2 := parser.Parse(c.Request().Body, func(entity *egdm.Entity) error {
-		err2 := writer.Write(entity)
-		if err2 != nil {
-			return err2.Underlying()
+		err3 := writer.Write(entity)
+		if err3 != nil {
+			return err3.Underlying()
 		}
 
 		return nil
@@ -184,6 +204,12 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	if err2 != nil {
 		ws.logger.Warn(err.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "could not parse the json payload")
+	}
+
+	err = writer.Close()
+	if err != nil {
+		ws.logger.Warn(err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "could not close the dataset writer")
 	}
 
 	return c.NoContent(http.StatusOK)
@@ -228,8 +254,11 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 
 func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
 	for {
-		entity := entityIterator.Next()
-		//fmt.Println(entity, entity == nil)
+		entity, lerr := entityIterator.Next()
+		if lerr != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, lerr.Error())
+		}
+
 		if entity == nil {
 			break
 		}
