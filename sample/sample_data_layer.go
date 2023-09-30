@@ -34,15 +34,12 @@ func (dl *SampleDataLayer) Dataset(dataset string) (layer.Dataset, layer.LayerEr
 	return nil, layer.Errorf(layer.LayerErrorBadParameter, "dataset %s not found", dataset)
 }
 
-func (dl *SampleDataLayer) DatasetNames() []string {
-	// create a slice of strings to hold the dataset names
-	var datasetNames []string
-
-	// add dataset names from the map to the slice
+func (dl *SampleDataLayer) DatasetDescriptions() []*layer.DatasetDescription {
+	var datasetDescriptions []*layer.DatasetDescription
 	for key := range dl.datasets {
-		datasetNames = append(datasetNames, key)
+		datasetDescriptions = append(datasetDescriptions, &layer.DatasetDescription{Name: key})
 	}
-	return datasetNames
+	return datasetDescriptions
 }
 
 // no shutdown required
@@ -149,8 +146,12 @@ func (sei *SampleEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
 	return nil, nil
 }
 
-func (sei *SampleEntityIterator) Token() (string, layer.LayerError) {
-	return "", nil
+func (sei *SampleEntityIterator) Context() *egdm.Context {
+	return nil
+}
+
+func (sei *SampleEntityIterator) Token() (*egdm.Continuation, layer.LayerError) {
+	return nil, nil
 }
 
 func (sei *SampleEntityIterator) Close() layer.LayerError {

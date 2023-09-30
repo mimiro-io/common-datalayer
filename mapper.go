@@ -157,7 +157,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
-		if !strings.HasPrefix(entityPropertyName, "http") {
+		if !strings.HasPrefix(entityPropertyName, "http") && entityPropertyName != "" {
 			if mapper.outgoingMappingConfig.BaseURI == "" {
 				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
 			}
@@ -197,7 +197,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			var entityPropertyValue any
 
 			switch v := propertyValue.(type) {
-			case []interface{}:
+			case []string:
 				entityPropertyValue = make([]string, len(v))
 				for i, val := range v {
 					s, err := stringOfValue(val)
@@ -435,7 +435,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 	for _, mapping := range mapper.incomingMappingConfig.PropertyMappings {
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
-		if !strings.HasPrefix(entityPropertyName, "http") {
+		if !strings.HasPrefix(entityPropertyName, "http") && entityPropertyName != "" {
 			if mapper.incomingMappingConfig.BaseURI == "" {
 				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
 			}

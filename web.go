@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -138,7 +139,7 @@ func (ws *dataLayerWebService) Stop(ctx context.Context) error {
 
 // TODO mechanism to add health checks from layer code
 func (ws *dataLayerWebService) health(c echo.Context) error {
-	return c.String(http.StatusOK, "UP")
+	return c.String(http.StatusOK, "running")
 }
 
 func getBoolFromString(s string) bool {
@@ -223,8 +224,12 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return err.toHTTPError()
 	}
-	entityIterator, err := ds.Entities("", 10000)
-	err2 := ws.responseOut(c, entityIterator)
+
+	// get the from query param
+	from := c.QueryParam("from")
+
+	entityIterator, err := ds.Entities(from, 10000)
+	err2 := ws.writeEntities(c, entityIterator)
 	if err2 != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -240,11 +245,29 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return err.toHTTPError()
 	}
-	entityIterator, err := ds.Changes("", 10000, false)
+
+	// get since query param
+	since := c.QueryParam("since")
+
+	// get the take param
+	takeParam := c.QueryParam("take")
+	take := 0
+	if takeParam != "" {
+		var perr error
+		take, perr = strconv.Atoi(takeParam)
+		if perr != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "could not parse the take parameter")
+		}
+	}
+
+	// get the latestOnly param
+	latestOnly := getBoolFromString(c.QueryParam("latestOnly"))
+
+	entityIterator, err := ds.Changes(since, take, latestOnly)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	err2 := ws.responseOut(c, entityIterator)
+	err2 := ws.writeEntities(c, entityIterator)
 	if err2 != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -252,7 +275,31 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	return nil
 }
 
-func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator EntityIterator) error {
+func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator EntityIterator) error {
+	// write context
+	_, err := c.Response().Write([]byte("[\n"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	ctx := entityIterator.Context()
+	if ctx == nil {
+		// create empty context
+		ctx = &egdm.Context{ID: "@context", Namespaces: make(map[string]string)}
+	}
+
+	// write out context
+	b, err := json.Marshal(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	_, err = c.Response().Write(b)
+	_, err = c.Response().Write([]byte(",\n"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// write out entities
 	for {
 		entity, lerr := entityIterator.Next()
 		if lerr != nil {
@@ -273,12 +320,35 @@ func (ws *dataLayerWebService) responseOut(c echo.Context, entityIterator Entity
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 	}
+
+	// write out token
+	token, lerr := entityIterator.Token()
+	if lerr != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, lerr.Error())
+	}
+	if token != nil {
+		b, err := json.Marshal(token)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+		_, err = c.Response().Write(b)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	}
+
+	// close array response
+	_, err = c.Response().Write([]byte("]\n"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
 	return nil
 }
 
 func (ws *dataLayerWebService) listDatasets(c echo.Context) error {
 	ws.logger.Info("listing datasets")
-	b, err := json.Marshal(ws.datalayerService.DatasetNames())
+	b, err := json.Marshal(ws.datalayerService.DatasetDescriptions())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
