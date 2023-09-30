@@ -2,9 +2,11 @@ name: Build and Test Common Data Layer
 
 on:
   push:
-    branches: [ * ]
+    branches:
+      - '*'
   pull_request:
-    branches: [ main ]
+    branches:
+      - 'master'
 
 jobs:
   build:
