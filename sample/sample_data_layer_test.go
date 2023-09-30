@@ -38,7 +38,7 @@ func TestNewSampleDataLayer(t *testing.T) {
 	}
 
 	// List datasets
-	resp, err := http.Get("http://localhost:21712/datasets")
+	resp, err := http.Get("http://127.0.0.1:8090/datasets")
 	fmt.Println("response: ", resp, err)
 	println()
 	content, _ := io.ReadAll(resp.Body)
