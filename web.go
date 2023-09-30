@@ -139,7 +139,7 @@ func (ws *dataLayerWebService) Stop(ctx context.Context) error {
 
 // TODO mechanism to add health checks from layer code
 func (ws *dataLayerWebService) health(c echo.Context) error {
-	return c.String(http.StatusOK, "UP")
+	return c.String(http.StatusOK, "running")
 }
 
 func getBoolFromString(s string) bool {
@@ -224,7 +224,11 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 		ws.logger.Error(fmt.Sprintf("dataset not found: %s", datasetName))
 		return err.toHTTPError()
 	}
-	entityIterator, err := ds.Entities("", 10000)
+
+	// get the from query param
+	from := c.QueryParam("from")
+
+	entityIterator, err := ds.Entities(from, 10000)
 	err2 := ws.writeEntities(c, entityIterator)
 	if err2 != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
