@@ -1,6 +1,6 @@
 {
   "layer_config": {
-    "port": "21712",
+    "port": "8090",
     "service_name": "sample_service"
   },
   "system_config" : {
