@@ -34,7 +34,6 @@ func TestMapOutgoingItemWithIdentity(t *testing.T) {
 
 	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings, &ItemToEntityPropertyMapping{
 		Property:        "id",
-		Datatype:        "string",
 		IsIdentity:      true,
 		UrlValuePattern: "http://data.example.com/{value}",
 	})
