@@ -18,7 +18,7 @@ type DataLayerService interface {
 	Stoppable
 	UpdateConfiguration(config *Config) LayerError
 	Dataset(dataset string) (Dataset, LayerError)
-	DatasetNames() []string
+	DatasetDescriptions() []*DatasetDescription
 }
 
 type BatchInfo struct {
@@ -28,8 +28,9 @@ type BatchInfo struct {
 }
 
 type EntityIterator interface {
+	Context() *egdm.Context
 	Next() (*egdm.Entity, LayerError)
-	Token() (string, LayerError)
+	Token() (*egdm.Continuation, LayerError)
 	Close() LayerError
 }
 
@@ -47,4 +48,10 @@ type Dataset interface {
 type DatasetWriter interface {
 	Write(entity *egdm.Entity) LayerError
 	Close() LayerError
+}
+
+type DatasetDescription struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Metadata    map[string]any `json:"metadata"`
 }
