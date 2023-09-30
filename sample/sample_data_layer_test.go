@@ -50,12 +50,12 @@ func TestNewSampleDataLayer(t *testing.T) {
 		{"id": "@context", "namespaces": {"_": "http://data.sample.org/"}},
 		{"id": "187", "props": {"name": "John Doe"}}
 	]`)
-	resp, err = http.Post("http://localhost:21712/datasets/sample/entities", "application/json", reader)
+	resp, err = http.Post("http://127.0.0.1:8090/datasets/sample/entities", "application/json", reader)
 	fmt.Println("response: ", resp, err)
 	println()
 
 	// Get changes
-	resp, err = http.Get("http://localhost:21712/datasets/sample/changes")
+	resp, err = http.Get("http://127.0.0.1:8090/datasets/sample/changes")
 	fmt.Println("response: ", resp, err)
 	println()
 	content, _ = io.ReadAll(resp.Body)
