@@ -26,6 +26,82 @@ func (i *InMemoryItem) NativeItem() any {
 	return i.properties
 }
 
+func TestOutgoingMappingWithBadBaseUri(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema",
+	}
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	if mapper.outgoingMappingConfig.BaseURI != "http://data.example.com/schema/" {
+		t.Error("base uri should have a trailing slash")
+	}
+
+	outgoingConfig = &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema#",
+	}
+
+	mapper = NewMapper(logger, nil, outgoingConfig)
+
+	if mapper.outgoingMappingConfig.BaseURI != "http://data.example.com/schema#" {
+		t.Error("base uri should have a trailing hash")
+	}
+
+	outgoingConfig = &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+
+	mapper = NewMapper(logger, nil, outgoingConfig)
+
+	if mapper.outgoingMappingConfig.BaseURI != "http://data.example.com/schema/" {
+		t.Error("base uri should have a trailing slash")
+	}
+}
+
+func TestIncomingMappingWithBadBaseUri(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	incomingConfig := &IncomingMappingConfig{}
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+	if mapper == nil {
+		t.Error("mapper should not be nil")
+	}
+
+	incomingConfig = &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema",
+	}
+
+	mapper = NewMapper(logger, incomingConfig, nil)
+
+	if mapper.incomingMappingConfig.BaseURI != "http://data.example.com/schema/" {
+		t.Error("base uri should have a trailing slash")
+	}
+
+	incomingConfig = &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema#",
+	}
+
+	mapper = NewMapper(logger, incomingConfig, nil)
+
+	if mapper.incomingMappingConfig.BaseURI != "http://data.example.com/schema#" {
+		t.Error("base uri should have a trailing hash")
+	}
+
+	incomingConfig = &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+
+	mapper = NewMapper(logger, incomingConfig, nil)
+
+	if mapper.incomingMappingConfig.BaseURI != "http://data.example.com/schema/" {
+		t.Error("base uri should have a trailing slash")
+	}
+
+}
+
 func TestMapOutgoingItemWithIdentity(t *testing.T) {
 	logger := newLogger("testService", "text")
 
