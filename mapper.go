@@ -26,7 +26,25 @@ func NewMapper(logger Logger, incomingMappingConfig *IncomingMappingConfig, outg
 		entityToItemCustomTransform: make([]func(entity *egdm.Entity, item Item) error, 0),
 	}
 
+	// ensure base URI ends with /
+	mapper.verifyBaseUri()
+
 	return mapper
+}
+
+func (mapper *Mapper) verifyBaseUri() {
+	if mapper.incomingMappingConfig != nil && mapper.incomingMappingConfig.BaseURI != "" {
+		if !(strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "/") ||
+			strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "#")) {
+			mapper.incomingMappingConfig.BaseURI = mapper.incomingMappingConfig.BaseURI + "/"
+		}
+	}
+	if mapper.outgoingMappingConfig != nil && mapper.outgoingMappingConfig.BaseURI != "" {
+		if !(strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "/") ||
+			strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "#")) {
+			mapper.outgoingMappingConfig.BaseURI = mapper.outgoingMappingConfig.BaseURI + "/"
+		}
+	}
 }
 
 func (mapper *Mapper) WithEntityToItemTransform(transform func(entity *egdm.Entity, item Item) error) *Mapper {
