@@ -3,7 +3,6 @@ package common_datalayer
 import (
 	"fmt"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
-	"github.com/pkg/errors"
 	"reflect"
 	"regexp"
 	"strings"
@@ -184,7 +183,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 		propertyValue, err := getValueFromItemOrConstruct(item, propertyName, constructedProperties)
 		if err != nil {
-			return errors.Wrap(err, "failed to get value from item or construct")
+			return fmt.Errorf("failed to get value from item or construct %w", err)
 		}
 		if propertyValue == nil {
 			if mapping.DefaultValue != nil {
@@ -200,7 +199,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		if mapping.IsIdentity {
 			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
-				return errors.Wrap(err, "failed to convert identity value to string")
+				return fmt.Errorf("failed to convert identity value to string %w", err)
 			}
 			if mapping.URIValuePattern == "" {
 				return fmt.Errorf("url value pattern is required for identity property")
@@ -220,14 +219,14 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				for i, val := range v {
 					s, err := stringOfValue(val)
 					if err != nil {
-						return errors.Wrap(err, "failed to convert reference value to string")
+						return fmt.Errorf("failed to convert reference value to string %w", err)
 					}
 					entityPropertyValue.([]string)[i] = makeURL(mapping.URIValuePattern, s)
 				}
 			default:
 				s, err := stringOfValue(propertyValue)
 				if err != nil {
-					return errors.Wrap(err, "failed to convert reference value to string")
+					return fmt.Errorf("failed to convert reference value to string %w", err)
 				}
 				entityPropertyValue = makeURL(mapping.URIValuePattern, s)
 			}
