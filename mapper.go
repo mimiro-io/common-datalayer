@@ -202,10 +202,10 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to convert identity value to string")
 			}
-			if mapping.UrlValuePattern == "" {
+			if mapping.URIValuePattern == "" {
 				return fmt.Errorf("url value pattern is required for identity property")
 			}
-			entity.ID = makeURL(mapping.UrlValuePattern, idValue)
+			entity.ID = makeURL(mapping.URIValuePattern, idValue)
 		} else if mapping.IsReference {
 			if entityPropertyName == "" {
 				return fmt.Errorf("entity property name is required for mapping")
@@ -222,14 +222,14 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					if err != nil {
 						return errors.Wrap(err, "failed to convert reference value to string")
 					}
-					entityPropertyValue.([]string)[i] = makeURL(mapping.UrlValuePattern, s)
+					entityPropertyValue.([]string)[i] = makeURL(mapping.URIValuePattern, s)
 				}
 			default:
 				s, err := stringOfValue(propertyValue)
 				if err != nil {
 					return errors.Wrap(err, "failed to convert reference value to string")
 				}
-				entityPropertyValue = makeURL(mapping.UrlValuePattern, s)
+				entityPropertyValue = makeURL(mapping.URIValuePattern, s)
 			}
 
 			entity.References[entityPropertyName] = entityPropertyValue

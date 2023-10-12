@@ -77,7 +77,7 @@ type ItemToEntityPropertyMapping struct {
 	Property        string `json:"property"`
 	Datatype        string `json:"datatype"`
 	IsReference     bool   `json:"is_reference"`
-	UrlValuePattern string `json:"url_value_pattern"`
+	URIValuePattern string `json:"uri_value_pattern"`
 	IsIdentity      bool   `json:"is_identity"`
 	DefaultValue    any    `json:"default_value"`
 }
