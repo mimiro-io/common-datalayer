@@ -171,17 +171,17 @@ Here is a sample constructor definition:
 ```
 After any constructors the mappings are applied, they are defined as follows:
 
-| Field Name       | Description                                         |
-|------------------|-----------------------------------------------------|
-| Custom           | A map of custom configuration keys and values       |
-| Required         | Indicates whether the field is required             |
-| EntityProperty   | The entity property to which the item property maps |
-| Property         | The item property being mapped                      |
-| Datatype         | The data type of the mapped property, optional      |
-| IsReference      | Indicates whether the property is a reference       |
-| UrlValuePattern  | The URL value pattern                               |
-| IsIdentity       | Indicates whether the property is an identity       |
-| DefaultValue     | The default value for the property                  |
+| Field Name      | Description                                         |
+|-----------------|-----------------------------------------------------|
+| Custom          | A map of custom configuration keys and values       |
+| Required        | Indicates whether the field is required             |
+| EntityProperty  | The entity property to which the item property maps |
+| Property        | The item property being mapped                      |
+| Datatype        | The data type of the mapped property, optional      |
+| IsReference     | Indicates whether the property is a reference       |
+| URIValuePattern | The URL value pattern                               |
+| IsIdentity      | Indicates whether the property is an identity       |
+| DefaultValue    | The default value for the property                  |
 
 
 ## The Mapper
@@ -203,7 +203,7 @@ An example of the mapper in use is shown below:
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item

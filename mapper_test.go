@@ -111,7 +111,7 @@ func TestMapOutgoingItemWithIdentity(t *testing.T) {
 	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings, &ItemToEntityPropertyMapping{
 		Property:        "id",
 		IsIdentity:      true,
-		UrlValuePattern: "http://data.example.com/{value}",
+		URIValuePattern: "http://data.example.com/{value}",
 	})
 
 	// make the item
@@ -169,7 +169,7 @@ func TestMapOutgoingItemWithIdentityButMissingValue(t *testing.T) {
 	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings, &ItemToEntityPropertyMapping{
 		Property:        "id",
 		IsIdentity:      true,
-		UrlValuePattern: "http://data.example.com/{value}",
+		URIValuePattern: "http://data.example.com/{value}",
 	})
 
 	// make the item
@@ -203,7 +203,7 @@ func TestMapOutgoingItemWithPropertyMapping(t *testing.T) {
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -254,7 +254,7 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -310,7 +310,7 @@ func TestMapOutgoingItemWithMissingRequiredProperty(t *testing.T) {
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -344,7 +344,7 @@ func TestMapOutgoingItemWithMissingEntityPropertyNameForPropertyMapping(t *testi
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -377,12 +377,12 @@ func TestMapOutgoingItemWithReferenceMapping(t *testing.T) {
 			Property:        "company",
 			IsReference:     true,
 			EntityProperty:  "http://data.example.com/company",
-			UrlValuePattern: "http://data.example.com/companies/{value}",
+			URIValuePattern: "http://data.example.com/companies/{value}",
 		},
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -419,12 +419,12 @@ func TestMapOutgoingItemWithReferenceMappingWithListOfValues(t *testing.T) {
 			Property:        "company",
 			IsReference:     true,
 			EntityProperty:  "http://data.example.com/company",
-			UrlValuePattern: "http://data.example.com/companies/{value}",
+			URIValuePattern: "http://data.example.com/companies/{value}",
 		},
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
@@ -467,7 +467,7 @@ func TestMapOutgoingItemWithMapAllProperties(t *testing.T) {
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
-			UrlValuePattern: "http://data.example.com/{value}",
+			URIValuePattern: "http://data.example.com/{value}",
 		})
 
 	// make the item
