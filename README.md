@@ -123,6 +123,8 @@ The EntityToItemPropertyMapping is defined as follows:
 | datatype               | The data type of the property                                          |
 | is_reference           | Indicates whether the property is a reference                          |
 | is_identity            | Indicates whether the property is an identity                          |
+| is_deleted             | Indicates whether the property marks the deleted state of the entity   |
+| is_recorded            | Indicates whether the property determines the entities recorded time   |
 | default_value          | The default value for the property if property not found on the entity |
 | strip_ref_prefix       | Indicates whether to strip reference value prefixes                    |
 
@@ -171,17 +173,19 @@ Here is a sample constructor definition:
 ```
 After any constructors the mappings are applied, they are defined as follows:
 
-| Field Name      | Description                                         |
-|-----------------|-----------------------------------------------------|
-| Custom          | A map of custom configuration keys and values       |
-| Required        | Indicates whether the field is required             |
-| EntityProperty  | The entity property to which the item property maps |
-| Property        | The item property being mapped                      |
-| Datatype        | The data type of the mapped property, optional      |
-| IsReference     | Indicates whether the property is a reference       |
-| URIValuePattern | The URL value pattern                               |
-| IsIdentity      | Indicates whether the property is an identity       |
-| DefaultValue    | The default value for the property                  |
+| Field Name        | Description                                         |
+|-------------------|-----------------------------------------------------|
+| custom            | A map of custom configuration keys and values       |
+| required          | Indicates whether the field is required             |
+| entity_property   | The entity property to which the item property maps |
+| property          | The item property being mapped                      |
+| datatype          | The data type of the mapped property, optional      |
+| is_reference      | Indicates whether the property is a reference       |
+| uri_value_pattern | The URL value pattern                               |
+| is_identity       | Indicates whether the property is an identity       |
+| default_value     | The default value for the property                  |
+| is_deleted        | Let the property contain the entities deleted state |
+| is_recorded       | Write the entity recorded time to this property     |
 
 
 ## The Mapper
