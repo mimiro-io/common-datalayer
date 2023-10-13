@@ -2,10 +2,11 @@ package common_datalayer
 
 import (
 	"fmt"
-	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"reflect"
 	"regexp"
 	"strings"
+
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
 
 type Mapper struct {
@@ -232,6 +233,18 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			}
 
 			entity.References[entityPropertyName] = entityPropertyValue
+		} else if mapping.IsDeleted {
+			if boolVal, ok := propertyValue.(bool); ok {
+				entity.IsDeleted = boolVal
+			} else {
+				return fmt.Errorf("IsDeleted property '%v' must be a bool", propertyName)
+			}
+		} else if mapping.IsRecorded {
+			intVal, err := intOfValue(propertyValue)
+			if err != nil {
+				return fmt.Errorf("IsRecorded property '%v' must be a uint64 (unix timestamp), %w", propertyName, err)
+			}
+			entity.Recorded = uint64(intVal)
 		} else {
 			if entityPropertyName == "" {
 				return fmt.Errorf("entity property name is required for mapping")
@@ -489,6 +502,10 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 					return fmt.Errorf("unsupported reference type %s", reflect.TypeOf(referenceValue))
 				}
 			}
+		} else if mapping.IsDeleted {
+			item.SetValue(propertyName, entity.IsDeleted)
+		} else if mapping.IsRecorded {
+			item.SetValue(propertyName, entity.Recorded)
 		} else {
 			// regular property
 			propertyValue := entity.Properties[entityPropertyName]
