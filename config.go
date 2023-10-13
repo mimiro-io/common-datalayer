@@ -60,26 +60,30 @@ type OutgoingMappingConfig struct {
 
 type EntityToItemPropertyMapping struct {
 	Custom               map[string]any
-	Required             bool   `json:"required"`
 	EntityProperty       string `json:"entity_property"`
 	Property             string `json:"property"`
 	Datatype             string `json:"datatype"`
-	IsReference          bool   `json:"is_reference"`
-	IsIdentity           bool   `json:"is_identity"`
 	DefaultValue         string `json:"default_value"`
 	StripReferencePrefix bool   `json:"strip_ref_prefix"`
+	Required             bool   `json:"required"`
+	IsIdentity           bool   `json:"is_identity"`
+	IsReference          bool   `json:"is_reference"`
+	IsDeleted            bool   `json:"is_deleted"`
+	IsRecorded           bool   `json:"is_recorded"`
 }
 
 type ItemToEntityPropertyMapping struct {
 	Custom          map[string]any
-	Required        bool   `json:"required"`
 	EntityProperty  string `json:"entity_property"`
 	Property        string `json:"property"`
 	Datatype        string `json:"datatype"`
-	IsReference     bool   `json:"is_reference"`
 	URIValuePattern string `json:"uri_value_pattern"`
-	IsIdentity      bool   `json:"is_identity"`
 	DefaultValue    any    `json:"default_value"`
+	Required        bool   `json:"required"`
+	IsIdentity      bool   `json:"is_identity"`
+	IsReference     bool   `json:"is_reference"`
+	IsDeleted       bool   `json:"is_deleted"`
+	IsRecorded      bool   `json:"is_recorded"`
 }
 
 /******************************************************************************/

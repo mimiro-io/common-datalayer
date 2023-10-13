@@ -1,8 +1,9 @@
 package common_datalayer
 
 import (
-	egdm "github.com/mimiro-io/entity-graph-data-model"
 	"testing"
+
+	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
 
 type InMemoryItem struct {
@@ -180,7 +181,7 @@ func TestMapOutgoingItemWithIdentityButMissingValue(t *testing.T) {
 	entity := &egdm.Entity{}
 	err := mapper.MapItemToEntity(item, entity)
 	if err == nil {
-		t.Error("should have failed with missing url pattern")
+		t.Error("should have failed with missing property")
 	}
 
 	if err.Error() != "property id is required" {
@@ -500,6 +501,123 @@ func TestMapOutgoingItemWithMapAllProperties(t *testing.T) {
 	}
 }
 
+func TestMapOutgoingItemWithDeletedProperty(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		PropertyMappings: []*ItemToEntityPropertyMapping{
+			{
+				Property:  "is_removed",
+				IsDeleted: true,
+			},
+		},
+	}
+
+	item := &InMemoryItem{
+		properties:    map[string]any{"is_removed": true},
+		propertyNames: []string{"is_removed"}}
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.IsDeleted != true {
+		t.Error("entity should be deleted")
+	}
+}
+
+func TestMapOutgoingItemWithWrongDeletedProperty(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		PropertyMappings: []*ItemToEntityPropertyMapping{
+			{
+				Property:  "name",
+				IsDeleted: true,
+			},
+		},
+	}
+
+	item := &InMemoryItem{
+		properties:    map[string]any{"name": "Hans"},
+		propertyNames: []string{"name"}}
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("should have failed with wrong value type")
+	}
+
+	if err.Error() != "IsDeleted property 'name' must be a bool" {
+		t.Error("wrong error message")
+	}
+}
+
+func TestMapOutgoingItemWithRecordedProperty(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		PropertyMappings: []*ItemToEntityPropertyMapping{
+			{
+				Property:   "recorded",
+				IsRecorded: true,
+			},
+		},
+	}
+
+	item := &InMemoryItem{
+		properties:    map[string]any{"recorded": 165455645554477},
+		propertyNames: []string{"recorded"}}
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.Recorded != 165455645554477 {
+		t.Error("entity should have recorded value 165455645554477")
+	}
+}
+
+func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		PropertyMappings: []*ItemToEntityPropertyMapping{
+			{
+				Property:   "name",
+				IsRecorded: true,
+			},
+		},
+	}
+
+	item := &InMemoryItem{
+		properties:    map[string]any{"name": "Hans"},
+		propertyNames: []string{"name"}}
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("should have failed with wrong value type")
+	}
+
+	if err.Error() != "IsRecorded property 'name' must be a uint64 (unix timestamp), unsupported type string" {
+		t.Error("wrong error message")
+	}
+
+}
+
 // Test Incoming property mapping
 func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
 	logger := newLogger("testService", "text")
@@ -708,4 +826,64 @@ func TestMapIncomingItemWithReferenceArrayMapping(t *testing.T) {
 		t.Error("item property company should be meprosoft")
 	}
 
+}
+
+func TestMapIncomingItemWithDeletedMapping(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	incomingConfig := &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+
+	incomingConfig.PropertyMappings = append(incomingConfig.PropertyMappings,
+		&EntityToItemPropertyMapping{
+			Property:  "is_removed",
+			IsDeleted: true,
+		})
+
+	// make the entity
+	entity := egdm.NewEntity()
+	entity.IsDeleted = true
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{}}
+	err := mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item.GetValue("is_removed") != true {
+		t.Error("item property is_removed should be true")
+	}
+}
+
+func TestMapIncomingItemWithRecordedMapping(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	incomingConfig := &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+
+	incomingConfig.PropertyMappings = append(incomingConfig.PropertyMappings,
+		&EntityToItemPropertyMapping{
+			Property:   "recorded_ts",
+			IsRecorded: true,
+		})
+
+	// make the entity
+	entity := egdm.NewEntity()
+	entity.Recorded = 1645554566455
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{}}
+	err := mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item.GetValue("recorded_ts") != uint64(1645554566455) {
+		t.Error("item property recorded_ts should be 1645554566455")
+	}
 }
