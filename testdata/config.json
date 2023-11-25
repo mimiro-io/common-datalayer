@@ -15,14 +15,14 @@
           "property" : "id",
           "datatype" : "int",
           "is_reference" : false,
-          "url_value_pattern" : "http://localhost:8080/animal/{value}"
+          "uri_value_pattern" : "http://localhost:8080/animal/{value}"
         },
         {
           "entity_property" : "name",
           "property" : "$.names[0].firstname",
           "datatype" : "string",
           "is_reference" : false,
-          "url_value_pattern" : "http://localhost:8080/animal/{value}"
+          "uri_value_pattern" : "http://localhost:8080/animal/{value}"
         },
         {
           "entity_property" : "dob",

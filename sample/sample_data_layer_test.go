@@ -26,6 +26,16 @@ func TestStartStopSampleDataLayer(t *testing.T) {
 	}
 }
 
+func waitForService(url string) {
+	// wait for service to start.
+	for {
+		resp, err := http.Get(url)
+		if err == nil && resp.StatusCode == 200 {
+			break
+		}
+	}
+}
+
 func TestNewSampleDataLayer(t *testing.T) {
 
 	configFile := "./config"
@@ -36,6 +46,8 @@ func TestNewSampleDataLayer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	waitForService("http://127.0.0.1:8090/datasets")
 
 	// List datasets
 	resp, err := http.Get("http://127.0.0.1:8090/datasets")
