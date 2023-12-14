@@ -67,8 +67,8 @@ The top level config keys are:
     },
     "system_config": {
     },
-    "dataset_definitions": {
-    }
+    "dataset_definitions": [
+    ]
 }
 
 ```
