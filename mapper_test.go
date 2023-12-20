@@ -1,6 +1,7 @@
 package common_datalayer
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -302,8 +303,9 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 		t.Error("entity property ratings should be [1.0, 5.0]")
 	}
 
-	if entity.References["http://data.example.com/when"] != "http://data.example.com/when/2023-12-20T10:06:39+01:00" {
-		t.Error("entity reference when should be http://data.example.com/when/2023-12-20T10:06:39+01:00, was ",
+	expectedTime := time.Unix(1703063199, 0).Format(time.RFC3339)
+	if entity.References["http://data.example.com/when"] != "http://data.example.com/when/"+expectedTime {
+		t.Error("entity reference when should be http://data.example.com/when/"+expectedTime+", was ",
 			entity.References["http://data.example.com/when"])
 	}
 }
@@ -371,8 +373,12 @@ func TestMapOutgoingWithChainedConstructions(t *testing.T) {
 		t.Error(err)
 	}
 
-	if entity.ID != "http://data.example.com/id/BIRTHDAY-2023_12_20T10_06_39_01_00" {
-		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-2023_12_20T10_06_39_01_00. was ", entity.ID)
+	expectedTime := time.Unix(1703063199, 0).Format(time.RFC3339)
+	expectedTime = strings.ReplaceAll(expectedTime, ":", "_")
+	expectedTime = strings.ReplaceAll(expectedTime, "-", "_")
+	expectedTime = strings.ReplaceAll(expectedTime, "+", "_")
+	if entity.ID != "http://data.example.com/id/BIRTHDAY-"+expectedTime {
+		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-"+expectedTime+". was ", entity.ID)
 	}
 
 }
