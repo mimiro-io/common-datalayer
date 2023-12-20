@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
@@ -57,10 +58,29 @@ func (mapper *Mapper) WithItemToEntityTransform(transform func(item Item, entity
 	return mapper
 }
 
+type mutableItem struct {
+	item                  Item
+	constructedProperties map[string]any
+}
+
+func (m *mutableItem) GetValue(name string) any {
+	val, err := getValueFromItemOrConstruct(m.item, name, m.constructedProperties)
+	if err != nil {
+		return nil
+	}
+	return val
+}
+
+func (m *mutableItem) SetValue(name string, value any) { m.item.SetValue(name, value) }
+
+func (m *mutableItem) NativeItem() any { return m.item.NativeItem() }
+
+func (m *mutableItem) GetPropertyNames() []string { return m.item.GetPropertyNames() }
+
 func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	// apply constructions
 	constructedProperties := make(map[string]any)
-
+	item = &mutableItem{item, constructedProperties}
 	if mapper.outgoingMappingConfig == nil {
 		return fmt.Errorf("outgoing mapping config is nil")
 	}
@@ -417,8 +437,8 @@ func stringOfValue(val interface{}) (string, error) {
 
 	v := reflect.ValueOf(val)
 	t := v.Type()
-
-	switch t.Kind() {
+	k := t.Kind()
+	switch k {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return fmt.Sprintf("%d", v.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -429,6 +449,11 @@ func stringOfValue(val interface{}) (string, error) {
 		return v.String(), nil
 	case reflect.Bool:
 		return fmt.Sprintf("%t", v.Bool()), nil
+	case reflect.Struct:
+		if t.String() == "time.Time" {
+			return val.(time.Time).Format(time.RFC3339), nil
+		}
+		return "", fmt.Errorf("unsupported type %s (%s)", t.String(), t.Kind())
 	default:
 		return "", fmt.Errorf("unsupported type %s", t.Kind())
 	}

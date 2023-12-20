@@ -1,7 +1,9 @@
 package common_datalayer
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	egdm "github.com/mimiro-io/entity-graph-data-model"
 )
@@ -253,6 +255,12 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 			EntityProperty: "http://data.example.com/height",
 		},
 		&ItemToEntityPropertyMapping{
+			Property:        "when",
+			IsReference:     true,
+			EntityProperty:  "http://data.example.com/when",
+			URIValuePattern: "http://data.example.com/when/{value}",
+		},
+		&ItemToEntityPropertyMapping{
 			Property:        "id",
 			IsIdentity:      true,
 			URIValuePattern: "http://data.example.com/{value}",
@@ -265,6 +273,7 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 	item.SetValue("tags", []string{"marge", "simpson"})
 	item.SetValue("ratings", []float64{1.0, 5.0})
 	item.SetValue("id", "1")
+	item.SetValue("when", time.Unix(1703063199, 0))
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
 
@@ -293,6 +302,85 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 	if entity.Properties["http://data.example.com/ratings"].([]float64)[0] != 1.0 {
 		t.Error("entity property ratings should be [1.0, 5.0]")
 	}
+
+	expectedTime := time.Unix(1703063199, 0).Format(time.RFC3339)
+	if entity.References["http://data.example.com/when"] != "http://data.example.com/when/"+expectedTime {
+		t.Error("entity reference when should be http://data.example.com/when/"+expectedTime+", was ",
+			entity.References["http://data.example.com/when"])
+	}
+}
+
+func TestMapOutgoingWithChainedConstructions(t *testing.T) {
+	logger := newLogger("testService", "text")
+
+	mapper := NewMapper(logger, nil, &OutgoingMappingConfig{
+		Constructions: []*PropertyConstructor{
+			{
+				PropertyName: "what",
+				Operation:    "trim",
+				Arguments:    []string{"what"},
+			},
+			{
+				PropertyName: "what",
+				Operation:    "toupper",
+				Arguments:    []string{"what"},
+			},
+			{
+				PropertyName: "dash",
+				Operation:    "literal",
+				Arguments:    []string{"-"},
+			},
+			{
+				PropertyName: "what",
+				Operation:    "concat",
+				Arguments:    []string{"what", "dash"},
+			},
+			{
+				PropertyName: "when",
+				Operation:    "replace",
+				Arguments:    []string{"when", "-", "_"},
+			},
+			{
+				PropertyName: "when",
+				Operation:    "replace",
+				Arguments:    []string{"when", ":", "_"},
+			},
+			{
+				PropertyName: "when",
+				Operation:    "replace",
+				Arguments:    []string{"when", "+", "_"},
+			},
+			{
+				PropertyName: "id",
+				Operation:    "concat",
+				Arguments:    []string{"what", "when"},
+			},
+		},
+		PropertyMappings: []*ItemToEntityPropertyMapping{{
+			Property:        "id",
+			URIValuePattern: "http://data.example.com/id/{value}",
+			IsIdentity:      true,
+		}}})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("what", "   Birthday ")
+	item.SetValue("when", time.Unix(1703063199, 0))
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	expectedTime := time.Unix(1703063199, 0).Format(time.RFC3339)
+	expectedTime = strings.ReplaceAll(expectedTime, ":", "_")
+	expectedTime = strings.ReplaceAll(expectedTime, "-", "_")
+	expectedTime = strings.ReplaceAll(expectedTime, "+", "_")
+	if entity.ID != "http://data.example.com/id/BIRTHDAY-"+expectedTime {
+		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-"+expectedTime+". was ", entity.ID)
+	}
+
 }
 
 // test missing property defined as required
