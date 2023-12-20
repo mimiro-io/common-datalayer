@@ -138,7 +138,9 @@ The `outgoing_mapping_config` is a JSON Object and used to provide information a
 | map_all                | If true, all properties are mapped              |
 | custom                 | A map of custom config keys and values          |
 
-Outgoing mappings define optional constructors and mappings. Constructors are functions that can create new properties before any mapping is applied. This can be used, for example, to concatenate multiple properties into a single property. The constructors are defined as follows:
+Outgoing mappings define optional constructions and mappings. Constructions are functions that can create new properties
+before any mapping is applied. This can be used, for example, to concatenate multiple properties into a single property.
+A constructor is defined as follows:
 
 | JSON Field | Description                       |
 |------------|-----------------------------------|
@@ -171,6 +173,43 @@ Here is a sample constructor definition:
     ]
 }
 ```
+
+Constructions override exiting properties if property names are the same.
+
+If multiple constructions are defined, they are applied in the order they are defined.
+
+Newly constructed properties can also be used as input property in succeeding constructions. This way multiple
+constructions can be composed into complex transformations.
+
+The following example uses these construction semantics to combine multiple constructors and create a formatted
+full name property
+
+``` json
+{
+    "property": "separator",
+    "operation": "literal",
+    "args": [ " " ]
+},
+{
+    "property": "prefixedLastName",
+    "operation": "concat",
+    "args": [
+        "separator",
+        "lastName"
+    ]
+},
+{
+    "property": "fullName",
+    "operation": "concat",
+    "args": [
+        "firstName",
+        "prefixedLastName"
+    ]
+}
+``` 
+
+
+
 After any constructors the mappings are applied, they are defined as follows:
 
 | Field Name        | Description                                         |
