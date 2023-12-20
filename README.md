@@ -174,9 +174,9 @@ Here is a sample constructor definition:
 }
 ```
 
-Constructions override exiting properties if property names are the same.
+Constructions override existing properties if property names are the same.
 
-If multiple constructions are defined, they are applied in the order they are defined.
+When multiple constructions are defined, they are applied in the order they appear in configuration.
 
 Newly constructed properties can also be used as input property in succeeding constructions. This way multiple
 constructions can be composed into complex transformations.
@@ -185,7 +185,7 @@ The following example uses these construction semantics to combine multiple cons
 full name property
 
 ``` json
-{
+[{
     "property": "separator",
     "operation": "literal",
     "args": [ " " ]
@@ -205,7 +205,7 @@ full name property
         "firstName",
         "prefixedLastName"
     ]
-}
+}]
 ``` 
 
 
