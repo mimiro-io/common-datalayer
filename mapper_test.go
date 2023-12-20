@@ -303,7 +303,8 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 	}
 
 	if entity.References["http://data.example.com/when"] != "http://data.example.com/when/2023-12-20T10:06:39+01:00" {
-		t.Error("entity reference when should be http://data.example.com/when/2023-12-20T10:06:39+01:00")
+		t.Error("entity reference when should be http://data.example.com/when/2023-12-20T10:06:39+01:00, was ",
+			entity.References["http://data.example.com/when"])
 	}
 }
 
@@ -371,7 +372,7 @@ func TestMapOutgoingWithChainedConstructions(t *testing.T) {
 	}
 
 	if entity.ID != "http://data.example.com/id/BIRTHDAY-2023_12_20T10_06_39_01_00" {
-		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-2023_12_20T10_06_39_01_00")
+		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-2023_12_20T10_06_39_01_00. was ", entity.ID)
 	}
 
 }
