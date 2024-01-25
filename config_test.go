@@ -1,6 +1,9 @@
 package common_datalayer
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestConfig(t *testing.T) {
 	config, err := loadConfig("./testdata")
@@ -45,5 +48,16 @@ func TestConfig_AddEnvOverrides(t *testing.T) {
 	}
 	if config.LayerServiceConfig.LogLevel != "debug" {
 		t.Error("LogLevel should be debug")
+	}
+}
+
+func TestConfig_PortAsNumber(t *testing.T) {
+	reader := strings.NewReader(`{ "layer_config": { "port": 8000 } }`)
+	conf, err := readConfig(reader)
+	if err != nil {
+		t.Error(err)
+	}
+	if conf.LayerServiceConfig.Port != "8000" {
+		t.Error("Port should be 8000")
 	}
 }

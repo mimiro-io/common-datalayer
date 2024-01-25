@@ -35,14 +35,12 @@ func NewMapper(logger Logger, incomingMappingConfig *IncomingMappingConfig, outg
 
 func (mapper *Mapper) verifyBaseUri() {
 	if mapper.incomingMappingConfig != nil && mapper.incomingMappingConfig.BaseURI != "" {
-		if !(strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "/") ||
-			strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "#")) {
+		if !strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "/") && !strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "#") {
 			mapper.incomingMappingConfig.BaseURI = mapper.incomingMappingConfig.BaseURI + "/"
 		}
 	}
 	if mapper.outgoingMappingConfig != nil && mapper.outgoingMappingConfig.BaseURI != "" {
-		if !(strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "/") ||
-			strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "#")) {
+		if !strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "/") && !strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "#") {
 			mapper.outgoingMappingConfig.BaseURI = mapper.outgoingMappingConfig.BaseURI + "/"
 		}
 	}
@@ -87,7 +85,8 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 	if mapper.outgoingMappingConfig.Constructions != nil {
 		for _, construction := range mapper.outgoingMappingConfig.Constructions {
-			if construction.Operation == "concat" {
+			switch construction.Operation {
+			case "concat":
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("concat operation requires two arguments")
 				}
@@ -96,7 +95,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = concatedValue
-			} else if construction.Operation == "split" {
+			case "split":
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("split operation requires two arguments")
 				}
@@ -106,7 +105,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = splitValue
-			} else if construction.Operation == "replace" {
+			case "replace":
 				if len(construction.Arguments) != 3 {
 					return fmt.Errorf("replace operation requires three arguments")
 				}
@@ -115,7 +114,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = replacedValue
-			} else if construction.Operation == "trim" {
+			case "trim":
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("trim operation requires one argument")
 				}
@@ -124,7 +123,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = trimmedValue
-			} else if construction.Operation == "tolower" {
+			case "tolower":
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("tolower operation requires one argument")
 				}
@@ -133,7 +132,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = tolowerValue
-			} else if construction.Operation == "toupper" {
+			case "toupper":
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("toupper operation requires one argument")
 				}
@@ -142,7 +141,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = toupperValue
-			} else if construction.Operation == "regex" {
+			case "regex":
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("regex operation requires two arguments")
 				}
@@ -151,7 +150,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = regexValue
-			} else if construction.Operation == "slice" {
+			case "slice":
 				if len(construction.Arguments) != 3 {
 					return fmt.Errorf("slice operation requires three arguments")
 				}
@@ -168,7 +167,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 					return err
 				}
 				constructedProperties[construction.PropertyName] = slicedValue
-			} else if construction.Operation == "literal" {
+			case "literal":
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("literal operation requires one argument")
 				}
@@ -476,7 +475,6 @@ func stripURL(url string) string {
 }
 
 func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
-
 	// do map named as this is the more general case, then do the property mappings
 	if mapper.incomingMappingConfig.MapNamed {
 		for _, propertyName := range item.GetPropertyNames() {

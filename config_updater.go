@@ -22,18 +22,15 @@ func newConfigUpdater(
 	config *Config,
 	enrichConfig func(config *Config) error,
 	l Logger,
-	listeners ...DataLayerService) (*configUpdater, error) {
-
+	listeners ...DataLayerService,
+) (*configUpdater, error) {
 	u := &configUpdater{logger: l}
 	u.ticker = time.NewTicker(5 * time.Second)
 	u.config = config
 
 	go func() {
-		for {
-			select {
-			case <-u.ticker.C:
-				u.checkForUpdates(enrichConfig, l, listeners...)
-			}
+		for range u.ticker.C {
+			u.checkForUpdates(enrichConfig, l, listeners...)
 		}
 	}()
 	return u, nil

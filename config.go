@@ -19,21 +19,21 @@ type Config struct {
 type NativeSystemConfig map[string]any
 
 type LayerServiceConfig struct {
+	Custom                map[string]any `json:"custom"`
 	ServiceName           string         `json:"service_name"`
-	Port                  string         `json:"port"`
+	Port                  json.Number    `json:"port"`
 	ConfigRefreshInterval string         `json:"config_refresh_interval"`
 	LogLevel              string         `json:"log_level"`
 	LogFormat             string         `json:"log_format"`
-	StatsdEnabled         bool           `json:"statsd_enabled"`
 	StatsdAgentAddress    string         `json:"statsd_agent_address"`
-	Custom                map[string]any `json:"custom"`
+	StatsdEnabled         bool           `json:"statsd_enabled"`
 }
 
 type DatasetDefinition struct {
-	DatasetName           string                 `json:"name"`
 	SourceConfig          map[string]any         `json:"source_config"`
 	IncomingMappingConfig *IncomingMappingConfig `json:"incoming_mapping_config"`
 	OutgoingMappingConfig *OutgoingMappingConfig `json:"outgoing_mapping_config"`
+	DatasetName           string                 `json:"name"`
 }
 
 // the operations can be one of the following: concat, split, replace, trim, tolower, toupper, regex, slice
@@ -44,18 +44,18 @@ type PropertyConstructor struct {
 }
 
 type IncomingMappingConfig struct {
-	MapNamed         bool                           `json:"map_named"` // if true then try and lookup entity properties based on the item property name and the BaseURI prefix
-	PropertyMappings []*EntityToItemPropertyMapping `json:"property_mappings"`
-	BaseURI          string                         `json:"base_uri"`
 	Custom           map[string]any                 `json:"custom"`
+	BaseURI          string                         `json:"base_uri"`
+	PropertyMappings []*EntityToItemPropertyMapping `json:"property_mappings"`
+	MapNamed         bool                           `json:"map_named"`
 }
 
 type OutgoingMappingConfig struct {
-	BaseURI          string                         `json:"base_uri"` // used when mapping all
+	Custom           map[string]any                 `json:"custom"`
+	BaseURI          string                         `json:"base_uri"`
 	Constructions    []*PropertyConstructor         `json:"constructions"`
 	PropertyMappings []*ItemToEntityPropertyMapping `json:"property_mappings"`
-	MapAll           bool                           `json:"map_all"` // if true, all properties are mapped
-	Custom           map[string]any                 `json:"custom"`
+	MapAll           bool                           `json:"map_all"`
 }
 
 type EntityToItemPropertyMapping struct {
@@ -73,12 +73,12 @@ type EntityToItemPropertyMapping struct {
 }
 
 type ItemToEntityPropertyMapping struct {
+	DefaultValue    any `json:"default_value"`
 	Custom          map[string]any
 	EntityProperty  string `json:"entity_property"`
 	Property        string `json:"property"`
 	Datatype        string `json:"datatype"`
 	URIValuePattern string `json:"uri_value_pattern"`
-	DefaultValue    any    `json:"default_value"`
 	Required        bool   `json:"required"`
 	IsIdentity      bool   `json:"is_identity"`
 	IsReference     bool   `json:"is_reference"`
@@ -168,7 +168,7 @@ func loadConfig(configPath string) (*Config, error) {
 func addEnvOverrides(c *Config) {
 	val, found := os.LookupEnv("PORT")
 	if found {
-		c.LayerServiceConfig.Port = val
+		c.LayerServiceConfig.Port = json.Number(val)
 	}
 
 	val, found = os.LookupEnv("CONFIG_REFRESH_INTERVAL")
