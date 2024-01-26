@@ -25,7 +25,6 @@ func NewServiceRunner(newLayerService func(config *Config, logger Logger, metric
 }
 
 func (serviceRunner *ServiceRunner) configure() {
-
 	if serviceRunner.configLocation == "" {
 		configPath, found := os.LookupEnv("DATALAYER_CONFIG_PATH")
 		if found {
@@ -49,7 +48,11 @@ func (serviceRunner *ServiceRunner) configure() {
 	}
 
 	// initialise logger
-	logger := newLogger(config.LayerServiceConfig.ServiceName, config.LayerServiceConfig.LogFormat)
+	logger := newLogger(
+		config.LayerServiceConfig.ServiceName,
+		config.LayerServiceConfig.LogFormat,
+		config.LayerServiceConfig.LogLevel,
+	)
 	serviceRunner.logger = logger
 
 	metrics, err := newMetrics(config)
@@ -76,13 +79,13 @@ func (serviceRunner *ServiceRunner) configure() {
 }
 
 type ServiceRunner struct {
-	stoppable      []Stoppable
 	logger         Logger
-	configLocation string
 	enrichConfig   func(config *Config) error
 	webService     *dataLayerWebService
 	configUpdater  *configUpdater
 	createService  func(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)
+	configLocation string
+	stoppable      []Stoppable
 }
 
 func (serviceRunner *ServiceRunner) Start() error {
@@ -138,7 +141,7 @@ func (serviceRunner *ServiceRunner) andWait() {
 //	 waitForStop listens for SIGINT (Ctrl+C) and SIGTERM (graceful docker stop).
 //		It accepts a list of stoppables that will be stopped when a signal is received.
 func waitForStop(logger Logger, stoppable ...Stoppable) {
-	sigChan := make(chan os.Signal)
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 	logger.Info("Data Layer stopping")

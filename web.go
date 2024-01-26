@@ -26,7 +26,6 @@ type dataLayerWebService struct {
 }
 
 func newDataLayerWebService(config *Config, logger Logger, metrics Metrics, dataLayerService DataLayerService) (*dataLayerWebService, error) {
-
 	e := echo.New()
 	e.HideBanner = true
 
@@ -52,7 +51,7 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 	e.Use(
 		// Request logging and HTTP metrics
 		func(next echo.HandlerFunc) echo.HandlerFunc {
-			//service := core.Config.SystemConfig.ServiceName()
+			// service := core.Config.SystemConfig.ServiceName()
 			return func(c echo.Context) error {
 				if skipper(c) {
 					return next(c)
@@ -60,7 +59,7 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 
 				start := time.Now()
 				tags := []string{
-					//fmt.Sprintf("application:%s", service),
+					// fmt.Sprintf("application:%s", service),
 					fmt.Sprintf("method:%s", strings.ToLower(c.Request().Method)),
 					fmt.Sprintf("url:%s", strings.ToLower(c.Request().RequestURI)),
 					fmt.Sprintf("status:%d", c.Response().Status),
@@ -127,7 +126,7 @@ func (ws *dataLayerWebService) Start() error {
 	port := ws.config.LayerServiceConfig.Port
 	ws.logger.Info(fmt.Sprintf("Starting Http server on :%s", port))
 	go func() {
-		_ = ws.e.Start(":" + port)
+		_ = ws.e.Start(":" + port.String())
 	}()
 
 	return nil
@@ -143,10 +142,7 @@ func (ws *dataLayerWebService) health(c echo.Context) error {
 }
 
 func getBoolFromString(s string) bool {
-	if strings.ToLower(s) == "true" {
-		return true
-	}
-	return false
+	return strings.ToLower(s) == "true"
 }
 
 func (ws *dataLayerWebService) postEntities(c echo.Context) error {
@@ -203,7 +199,7 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	}, nil)
 
 	if err2 != nil {
-		ws.logger.Warn(err.Error())
+		ws.logger.Warn(err2.Error())
 		return echo.NewHTTPError(http.StatusBadRequest, "could not parse the json payload")
 	}
 
@@ -269,7 +265,7 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	}
 	err2 := ws.writeEntities(c, entityIterator)
 	if err2 != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
 	}
 
 	return nil
@@ -294,6 +290,9 @@ func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator Enti
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	_, err = c.Response().Write(b)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 	_, err = c.Response().Write([]byte(",\n"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -309,15 +308,17 @@ func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator Enti
 		if entity == nil {
 			break
 		}
-		b, err := json.Marshal(entity)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		b, err2 := json.Marshal(entity)
+		if err2 != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
 		}
-		_, err = c.Response().Write(b)
-		_, err = c.Response().Write([]byte(",\n"))
-
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		_, err2 = c.Response().Write(b)
+		if err2 != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
+		}
+		_, err2 = c.Response().Write([]byte(",\n"))
+		if err2 != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
 		}
 	}
 
@@ -327,13 +328,13 @@ func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator Enti
 		return echo.NewHTTPError(http.StatusInternalServerError, lerr.Error())
 	}
 	if token != nil {
-		b, err := json.Marshal(token)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		b, err2 := json.Marshal(token)
+		if err2 != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
 		}
-		_, err = c.Response().Write(b)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		_, err2 = c.Response().Write(b)
+		if err2 != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err2.Error())
 		}
 	}
 
