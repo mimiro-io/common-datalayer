@@ -279,6 +279,7 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 }
 
 func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator EntityIterator) error {
+	defer entityIterator.Close()
 	// write context
 	_, err := c.Response().Write([]byte("[\n"))
 	if err != nil {
