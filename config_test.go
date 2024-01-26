@@ -49,6 +49,9 @@ func TestConfig_AddEnvOverrides(t *testing.T) {
 	if config.LayerServiceConfig.LogLevel != "debug" {
 		t.Error("LogLevel should be debug")
 	}
+	if config.LayerServiceConfig.LogFormat != "json" {
+		t.Error("LogFormat should be json")
+	}
 }
 
 func TestConfig_PortAsNumber(t *testing.T) {

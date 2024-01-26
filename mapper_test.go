@@ -30,7 +30,7 @@ func (i *InMemoryItem) NativeItem() any {
 }
 
 func TestOutgoingMappingWithBadBaseUri(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		BaseURI: "http://data.example.com/schema",
@@ -64,7 +64,7 @@ func TestOutgoingMappingWithBadBaseUri(t *testing.T) {
 }
 
 func TestIncomingMappingWithBadBaseUri(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{}
 
@@ -102,11 +102,10 @@ func TestIncomingMappingWithBadBaseUri(t *testing.T) {
 	if mapper.incomingMappingConfig.BaseURI != "http://data.example.com/schema/" {
 		t.Error("base uri should have a trailing slash")
 	}
-
 }
 
 func TestMapOutgoingItemWithIdentity(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -135,7 +134,7 @@ func TestMapOutgoingItemWithIdentity(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithIdentityButMissingUrlPattern(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -164,7 +163,7 @@ func TestMapOutgoingItemWithIdentityButMissingUrlPattern(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithIdentityButMissingValue(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -193,7 +192,7 @@ func TestMapOutgoingItemWithIdentityButMissingValue(t *testing.T) {
 
 // test outgoing property mapping
 func TestMapOutgoingItemWithPropertyMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -232,7 +231,7 @@ func TestMapOutgoingItemWithPropertyMapping(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -311,7 +310,7 @@ func TestMapOutgoingItemWithPropertyMappingOfDifferentTypes(t *testing.T) {
 }
 
 func TestMapOutgoingWithChainedConstructions(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	mapper := NewMapper(logger, nil, &OutgoingMappingConfig{
 		Constructions: []*PropertyConstructor{
@@ -360,7 +359,8 @@ func TestMapOutgoingWithChainedConstructions(t *testing.T) {
 			Property:        "id",
 			URIValuePattern: "http://data.example.com/id/{value}",
 			IsIdentity:      true,
-		}}})
+		}},
+	})
 
 	// make the item
 	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
@@ -380,12 +380,11 @@ func TestMapOutgoingWithChainedConstructions(t *testing.T) {
 	if entity.ID != "http://data.example.com/id/BIRTHDAY-"+expectedTime {
 		t.Error("entity ID should be http://data.example.com/id/BIRTHDAY-"+expectedTime+". was ", entity.ID)
 	}
-
 }
 
 // test missing property defined as required
 func TestMapOutgoingItemWithMissingRequiredProperty(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -421,7 +420,7 @@ func TestMapOutgoingItemWithMissingRequiredProperty(t *testing.T) {
 
 // test missing entityproperty name for property mapping
 func TestMapOutgoingItemWithMissingEntityPropertyNameForPropertyMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -456,7 +455,7 @@ func TestMapOutgoingItemWithMissingEntityPropertyNameForPropertyMapping(t *testi
 
 // Test reference mapping
 func TestMapOutgoingItemWithReferenceMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -498,7 +497,7 @@ func TestMapOutgoingItemWithReferenceMapping(t *testing.T) {
 
 // Test reference mapping with list of values
 func TestMapOutgoingItemWithReferenceMappingWithListOfValues(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{}
 	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
@@ -544,7 +543,7 @@ func TestMapOutgoingItemWithReferenceMappingWithListOfValues(t *testing.T) {
 
 // Test Map all properties
 func TestMapOutgoingItemWithMapAllProperties(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		MapAll:           true,
@@ -590,7 +589,7 @@ func TestMapOutgoingItemWithMapAllProperties(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithDeletedProperty(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		PropertyMappings: []*ItemToEntityPropertyMapping{
@@ -603,7 +602,8 @@ func TestMapOutgoingItemWithDeletedProperty(t *testing.T) {
 
 	item := &InMemoryItem{
 		properties:    map[string]any{"is_removed": true},
-		propertyNames: []string{"is_removed"}}
+		propertyNames: []string{"is_removed"},
+	}
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
 
@@ -619,7 +619,7 @@ func TestMapOutgoingItemWithDeletedProperty(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithWrongDeletedProperty(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		PropertyMappings: []*ItemToEntityPropertyMapping{
@@ -632,7 +632,8 @@ func TestMapOutgoingItemWithWrongDeletedProperty(t *testing.T) {
 
 	item := &InMemoryItem{
 		properties:    map[string]any{"name": "Hans"},
-		propertyNames: []string{"name"}}
+		propertyNames: []string{"name"},
+	}
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
 
@@ -648,7 +649,7 @@ func TestMapOutgoingItemWithWrongDeletedProperty(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithRecordedProperty(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		PropertyMappings: []*ItemToEntityPropertyMapping{
@@ -661,7 +662,8 @@ func TestMapOutgoingItemWithRecordedProperty(t *testing.T) {
 
 	item := &InMemoryItem{
 		properties:    map[string]any{"recorded": 165455645554477},
-		propertyNames: []string{"recorded"}}
+		propertyNames: []string{"recorded"},
+	}
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
 
@@ -677,7 +679,7 @@ func TestMapOutgoingItemWithRecordedProperty(t *testing.T) {
 }
 
 func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	outgoingConfig := &OutgoingMappingConfig{
 		PropertyMappings: []*ItemToEntityPropertyMapping{
@@ -690,7 +692,8 @@ func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
 
 	item := &InMemoryItem{
 		properties:    map[string]any{"name": "Hans"},
-		propertyNames: []string{"name"}}
+		propertyNames: []string{"name"},
+	}
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
 
@@ -703,12 +706,11 @@ func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
 	if err.Error() != "IsRecorded property 'name' must be a uint64 (unix timestamp), unsupported type string" {
 		t.Error("wrong error message")
 	}
-
 }
 
 // Test Incoming property mapping
 func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI:          "http://data.example.com/schema/",
@@ -750,7 +752,7 @@ func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
 }
 
 func TestMapIncomingItemWithBaseURIPropertyMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI:          "http://data.example.com/schema/",
@@ -793,7 +795,7 @@ func TestMapIncomingItemWithBaseURIPropertyMapping(t *testing.T) {
 
 // Test Incoming property mapping with MapNamed
 func TestMapIncomingItemWithPropertyMappingAndMapNamed(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI:  "http://data.example.com/schema/",
@@ -825,7 +827,7 @@ func TestMapIncomingItemWithPropertyMappingAndMapNamed(t *testing.T) {
 
 // Test Incoming property mapping with reference mappings
 func TestMapIncomingItemWithReferenceMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI: "http://data.example.com/schema/",
@@ -869,7 +871,7 @@ func TestMapIncomingItemWithReferenceMapping(t *testing.T) {
 
 // Test Incoming property mapping with array of reference mappings
 func TestMapIncomingItemWithReferenceArrayMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI: "http://data.example.com/schema/",
@@ -913,11 +915,10 @@ func TestMapIncomingItemWithReferenceArrayMapping(t *testing.T) {
 	if item.GetValue("company").([]string)[1] != "meprosoft" {
 		t.Error("item property company should be meprosoft")
 	}
-
 }
 
 func TestMapIncomingItemWithDeletedMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI: "http://data.example.com/schema/",
@@ -947,7 +948,7 @@ func TestMapIncomingItemWithDeletedMapping(t *testing.T) {
 }
 
 func TestMapIncomingItemWithRecordedMapping(t *testing.T) {
-	logger := newLogger("testService", "text")
+	logger := newLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
 		BaseURI: "http://data.example.com/schema/",

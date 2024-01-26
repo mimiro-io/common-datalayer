@@ -86,10 +86,23 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug(message, args...)
 }
 
-func newLogger(serviceName string, format string) Logger {
+func newLogger(serviceName string, format string, level string) Logger {
+	var slevel slog.Level
+	switch strings.ToLower(level) {
+	case "debug":
+		slevel = slog.LevelDebug
+	case "info":
+		slevel = slog.LevelInfo
+	case "warn":
+		slevel = slog.LevelWarn
+	case "error":
+		slevel = slog.LevelError
+	default:
+		slevel = slog.LevelInfo
+	}
 	opts := &slog.HandlerOptions{
 		AddSource: true,
-		Level:     slog.LevelDebug,
+		Level:     slevel,
 		// traverse call stack to find the first non-log/slog function and use that as the source
 		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
 			if a.Key == "source" {

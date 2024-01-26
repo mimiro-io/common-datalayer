@@ -48,7 +48,11 @@ func (serviceRunner *ServiceRunner) configure() {
 	}
 
 	// initialise logger
-	logger := newLogger(config.LayerServiceConfig.ServiceName, config.LayerServiceConfig.LogFormat)
+	logger := newLogger(
+		config.LayerServiceConfig.ServiceName,
+		config.LayerServiceConfig.LogFormat,
+		config.LayerServiceConfig.LogLevel,
+	)
 	serviceRunner.logger = logger
 
 	metrics, err := newMetrics(config)
