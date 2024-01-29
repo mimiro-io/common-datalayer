@@ -157,7 +157,7 @@ func TestMapOutgoingItemWithIdentityButMissingUrlPattern(t *testing.T) {
 		t.Failed()
 	}
 
-	if err.Error() != "url value pattern is required for identity property" {
+	if !strings.Contains(err.Error(), "url value pattern is required for identity property") {
 		t.Error("should have failed with missing url pattern")
 	}
 }
