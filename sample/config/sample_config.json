@@ -1,10 +1,12 @@
 {
   "layer_config": {
     "port": "8090",
-    "service_name": "sample_service"
+    "service_name": "sample_service",
+    "log_level": "DEBUG",
+    "config_refresh_interval": "2s"
   },
-  "system_config" : {
-    "in_memory" : true
+  "system_config": {
+    "in_memory": true
   },
   "dataset_definitions": [
     {
@@ -12,31 +14,33 @@
       "source_config": {
         "strip_props": true
       },
-      "incoming_mapping_config" : {
-        "base_uri" : "http://data.sample.org/",
-        "property_mappings" : [
-        {
-          "property": "id",
-          "is_identity": true,
-          "uri_value_pattern": "http://data.sample.org/things/{value}"
-        },
-        {
-          "entity_property": "name",
-          "property": "name"
-        }]
+      "incoming_mapping_config": {
+        "base_uri": "http://data.sample.org/",
+        "property_mappings": [
+          {
+            "property": "id",
+            "is_identity": true,
+            "uri_value_pattern": "http://data.sample.org/things/{value}"
+          },
+          {
+            "entity_property": "name",
+            "property": "name"
+          }
+        ]
       },
-      "outgoing_mapping_config" : {
-        "base_uri" : "http://data.sample.org/",
-        "property_mappings" : [
-        {
-          "property": "id",
-          "is_identity": true,
-          "uri_value_pattern": "http://data.sample.org/things/{value}"
-        },
-        {
-          "entity_property": "name",
-          "property": "name"
-        }]
+      "outgoing_mapping_config": {
+        "base_uri": "http://data.sample.org/",
+        "property_mappings": [
+          {
+            "property": "id",
+            "is_identity": true,
+            "uri_value_pattern": "http://data.sample.org/things/{value}"
+          },
+          {
+            "entity_property": "name",
+            "property": "name"
+          }
+        ]
       }
     }
   ]

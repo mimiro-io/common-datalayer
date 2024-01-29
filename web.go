@@ -48,6 +48,15 @@ func mw(logger Logger, metrics Metrics, e *echo.Echo) {
 		// skip health check
 		return strings.HasPrefix(c.Request().URL.Path, "/health")
 	}
+	defaultErrorHandler := e.HTTPErrorHandler
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if c.Response().Committed {
+			logger.Error("Internal Error. Response already committed to 200 but will produce truncated/invalid payload.", "error", err.Error())
+		} else {
+			logger.Error("Internal Error", "error", err.Error())
+		}
+		defaultErrorHandler(err, c)
+	}
 	e.Use(
 		// Request logging and HTTP metrics
 		func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -225,12 +234,10 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 	from := c.QueryParam("from")
 
 	entityIterator, err := ds.Entities(from, 10000)
-	err2 := ws.writeEntities(c, entityIterator)
-	if err2 != nil {
+	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
-	return nil
+	return ws.writeEntities(c, entityIterator)
 }
 
 func (ws *dataLayerWebService) getChanges(c echo.Context) error {
@@ -272,6 +279,7 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 }
 
 func (ws *dataLayerWebService) writeEntities(c echo.Context, entityIterator EntityIterator) error {
+	defer entityIterator.Close()
 	// write context
 	_, err := c.Response().Write([]byte("[\n"))
 	if err != nil {
