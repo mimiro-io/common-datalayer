@@ -90,7 +90,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("concat operation requires two arguments")
 				}
-				concatedValue, err := concat(item.GetValue(construction.Arguments[0]), item.GetValue(construction.Arguments[1]))
+				concatedValue, err := concat(item, construction.Arguments[0], construction.Arguments[1])
 				if err != nil {
 					return err
 				}
@@ -99,8 +99,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("split operation requires two arguments")
 				}
-				spliter := construction.Arguments[1]
-				splitValue, err := split(item.GetValue(construction.Arguments[0]), spliter)
+				splitValue, err := split(item, construction.Arguments[0], construction.Arguments[1])
 				if err != nil {
 					return err
 				}
@@ -109,7 +108,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 3 {
 					return fmt.Errorf("replace operation requires three arguments")
 				}
-				replacedValue, err := replace(item.GetValue(construction.Arguments[0]), construction.Arguments[1], construction.Arguments[2])
+				replacedValue, err := replace(item, construction.Arguments[0], construction.Arguments[1], construction.Arguments[2])
 				if err != nil {
 					return err
 				}
@@ -118,7 +117,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("trim operation requires one argument")
 				}
-				trimmedValue, err := trim(item.GetValue(construction.Arguments[0]))
+				trimmedValue, err := trim(item, construction.Arguments[0])
 				if err != nil {
 					return err
 				}
@@ -127,7 +126,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("tolower operation requires one argument")
 				}
-				tolowerValue, err := tolower(item.GetValue(construction.Arguments[0]))
+				tolowerValue, err := tolower(item, construction.Arguments[0])
 				if err != nil {
 					return err
 				}
@@ -136,7 +135,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 1 {
 					return fmt.Errorf("toupper operation requires one argument")
 				}
-				toupperValue, err := toupper(item.GetValue(construction.Arguments[0]))
+				toupperValue, err := toupper(item, construction.Arguments[0])
 				if err != nil {
 					return err
 				}
@@ -145,7 +144,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 2 {
 					return fmt.Errorf("regex operation requires two arguments")
 				}
-				regexValue, err := regex(item.GetValue(construction.Arguments[0]), construction.Arguments[1])
+				regexValue, err := regex(item, construction.Arguments[0], construction.Arguments[1])
 				if err != nil {
 					return err
 				}
@@ -154,15 +153,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				if len(construction.Arguments) != 3 {
 					return fmt.Errorf("slice operation requires three arguments")
 				}
-				start, err := intOfValue(construction.Arguments[1])
-				if err != nil {
-					return err
-				}
-				end, err := intOfValue(construction.Arguments[2])
-				if err != nil {
-					return err
-				}
-				slicedValue, err := slice(item.GetValue(construction.Arguments[0]), start, end)
+				slicedValue, err := slice(item, construction.Arguments[0], construction.Arguments[1], construction.Arguments[2])
 				if err != nil {
 					return err
 				}
@@ -299,117 +290,101 @@ func makeURL(urlPattern string, value string) string {
 	return strings.ReplaceAll(urlPattern, "{value}", value)
 }
 
-func regex(v1 any, pattern string) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func regex(item Item, p1 string, pattern string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("regex: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
-
 	// Compile the regular expression pattern
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("regex: invalid pattern: '%s'. item: %+v, error: %w", pattern, item.NativeItem(), err)
 	}
 
 	// Find the first match in the string
 	match := re.FindString(s1)
 	if match == "" {
-		return "", fmt.Errorf("no match found for pattern: %s", pattern)
+		return "", fmt.Errorf("regex: no match. pattern: '%s', property: '%s' item: %+v, error: %w", pattern, p1, item.NativeItem(), err)
 	}
 
 	return match, nil
 }
 
-func slice(v1 any, start, end int) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func slice(item Item, p1, p2, p3 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("slice: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
+	}
+
+	start, err := intOfValue(p2)
+	if err != nil {
+		return "", fmt.Errorf("slice: start index '%s' could not be parsed. item: %+v, error: %w", p2, item.NativeItem(), err)
+	}
+	end, err := intOfValue(p3)
+	if err != nil {
+		return "", fmt.Errorf("slice: end index '%s' could not be parsed. item: %+v, error: %w", p3, item.NativeItem(), err)
 	}
 	return s1[start:end], nil
 }
 
-func tolower(v1 any) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func tolower(item Item, p1 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("tolower: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
 	return strings.ToLower(s1), nil
 }
 
-func toupper(v1 any) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func toupper(item Item, p1 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("toupper: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
 	return strings.ToUpper(s1), nil
 }
 
-func trim(v1 any) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func trim(item Item, p1 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("trim: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
 	return strings.TrimSpace(s1), nil
 }
 
-func replace(v1 any, s2, s3 string) (string, error) {
-	if v1 == nil {
-		return "", fmt.Errorf("value is nil")
-	}
-	s1, err := stringOfValue(v1)
+func replace(item Item, p1 string, s2, s3 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(p1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("replace: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
 	return strings.ReplaceAll(s1, s2, s3), nil
 }
 
-func split(v1 any, split string) ([]string, error) {
-	if v1 == nil {
-		return nil, fmt.Errorf("value is nil")
+func split(item Item, valueProp string, splitProp string) ([]string, error) {
+	s1, err := stringOfValue(item.GetValue(valueProp))
+	if err != nil {
+		return nil, fmt.Errorf("split: property '%s' could not be accessed. item: %+v, error: %w", splitProp, item.NativeItem(), err)
 	}
 
-	v := reflect.ValueOf(v1)
-	t := v.Type()
-
-	var s1 string
-
-	switch t.Kind() {
-	case reflect.String:
-		s1 = v.String()
-	default:
-		return nil, fmt.Errorf("split only works on string input %s", t.Kind())
+	s2, err := stringOfValue(item.GetValue(splitProp))
+	if err != nil {
+		return nil, fmt.Errorf("split: property '%s' could not be accessed. item: %+v, error: %w", splitProp, item.NativeItem(), err)
 	}
-	return strings.Split(s1, split), nil
+	return strings.Split(s1, s2), nil
 }
 
-func concat(v1, v2 any) (string, error) {
-	s1, err := stringOfValue(v1)
+func concat(item Item, propName1, propName2 string) (string, error) {
+	s1, err := stringOfValue(item.GetValue(propName1))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("concat: property '%s' could not be accessed. item: %+v, error: %w", propName1, item.NativeItem(), err)
 	}
-	s2, err := stringOfValue(v2)
+	s2, err := stringOfValue(item.GetValue(propName2))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("concat: property '%s' could not be accessed. item: %+v, error: %w", propName2, item.NativeItem(), err)
 	}
 	return s1 + s2, nil
 }
 
-func intOfValue(val interface{}) (int, error) {
+func intOfValue(val any) (int, error) {
 	if val == nil {
 		return 0, fmt.Errorf("value is nil")
 	}
