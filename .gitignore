@@ -23,4 +23,5 @@ go.work
 .idea
 .vscode
 
-
+# neotest ginkgo-nvim
+suite_test.json

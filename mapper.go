@@ -180,28 +180,28 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	for _, mapping := range mapper.outgoingMappingConfig.PropertyMappings {
 
 		if mapping.Property == "" {
-			return fmt.Errorf("property name is required")
+			return fmt.Errorf("property name is required, mapping: %+v", mapping)
 		}
 
 		propertyName := mapping.Property
 		entityPropertyName := mapping.EntityProperty
 		if !strings.HasPrefix(entityPropertyName, "http") && entityPropertyName != "" {
 			if mapper.outgoingMappingConfig.BaseURI == "" {
-				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
+				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI. mapping: %+v", mapping)
 			}
 			entityPropertyName = mapper.outgoingMappingConfig.BaseURI + entityPropertyName
 		}
 
 		propertyValue, err := getValueFromItemOrConstruct(item, propertyName, constructedProperties)
 		if err != nil {
-			return fmt.Errorf("failed to get value from item or construct %w", err)
+			return fmt.Errorf("failed to get value from item or construct. item: %+v, error: %w", item.NativeItem(), err)
 		}
 		if propertyValue == nil {
 			if mapping.DefaultValue != nil {
 				propertyValue = mapping.DefaultValue
 			} else {
 				if mapping.Required || mapping.IsIdentity {
-					return fmt.Errorf("property %s is required", propertyName)
+					return fmt.Errorf("property %s is required. item: %+v", propertyName, item.NativeItem())
 				}
 				continue
 			}
@@ -210,15 +210,15 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		if mapping.IsIdentity {
 			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
-				return fmt.Errorf("failed to convert identity value to string %w", err)
+				return fmt.Errorf("failed to convert identity value to string. item: %+v, error: %w", item.NativeItem(), err)
 			}
 			if mapping.URIValuePattern == "" {
-				return fmt.Errorf("url value pattern is required for identity property")
+				return fmt.Errorf("url value pattern is required for identity property. mapping: %+v", mapping)
 			}
 			entity.ID = makeURL(mapping.URIValuePattern, idValue)
 		} else if mapping.IsReference {
 			if entityPropertyName == "" {
-				return fmt.Errorf("entity property name is required for mapping")
+				return fmt.Errorf("entity property name is required for mapping. mapping: %+v", mapping)
 			}
 
 			// reference property
@@ -230,14 +230,14 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				for i, val := range v {
 					s, err := stringOfValue(val)
 					if err != nil {
-						return fmt.Errorf("failed to convert reference value to string %w", err)
+						return fmt.Errorf("failed to convert reference value to string value: %+v, item: %+v,error: %w", val, item.NativeItem(), err)
 					}
 					entityPropertyValue.([]string)[i] = makeURL(mapping.URIValuePattern, s)
 				}
 			default:
 				s, err := stringOfValue(propertyValue)
 				if err != nil {
-					return fmt.Errorf("failed to convert reference value to string %w", err)
+					return fmt.Errorf("failed to convert reference value to string value: %+v, item: %+v,error: %w", propertyValue, item.NativeItem(), err)
 				}
 				entityPropertyValue = makeURL(mapping.URIValuePattern, s)
 			}
@@ -247,17 +247,17 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			if boolVal, ok := propertyValue.(bool); ok {
 				entity.IsDeleted = boolVal
 			} else {
-				return fmt.Errorf("IsDeleted property '%v' must be a bool", propertyName)
+				return fmt.Errorf("IsDeleted property '%v' must be a bool. item: %+v", propertyName, item.NativeItem())
 			}
 		} else if mapping.IsRecorded {
 			intVal, err := intOfValue(propertyValue)
 			if err != nil {
-				return fmt.Errorf("IsRecorded property '%v' must be a uint64 (unix timestamp), %w", propertyName, err)
+				return fmt.Errorf("IsRecorded property '%v' must be a uint64 (unix timestamp), item: %+v, error: %w", propertyName, item.NativeItem(), err)
 			}
 			entity.Recorded = uint64(intVal)
 		} else {
 			if entityPropertyName == "" {
-				return fmt.Errorf("entity property name is required for mapping")
+				return fmt.Errorf("entity property name is required for mapping: %+v", mapping)
 			}
 
 			// regular property
@@ -270,7 +270,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		for _, transform := range mapper.itemToEntityCustomTransform {
 			err := transform(item, entity)
 			if err != nil {
-				return err
+				return fmt.Errorf("custom transform failed. mapper: %+v, item: %+v, error: %w", mapper, item.NativeItem(), err)
 			}
 		}
 	}
@@ -465,7 +465,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 		entityPropertyName := mapping.EntityProperty
 		if !strings.HasPrefix(entityPropertyName, "http") && entityPropertyName != "" {
 			if mapper.incomingMappingConfig.BaseURI == "" {
-				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI")
+				return fmt.Errorf("base uri is required for mapping and entity_property isnt full URI. mapping: %+v", mapping)
 			}
 			entityPropertyName = mapper.incomingMappingConfig.BaseURI + entityPropertyName
 		}
@@ -497,7 +497,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 						item.SetValue(propertyName, v)
 					}
 				default:
-					return fmt.Errorf("unsupported reference type %s", reflect.TypeOf(referenceValue))
+					return fmt.Errorf("unsupported reference type %s, value %v, entityId: %s", reflect.TypeOf(referenceValue), referenceValue, entity.ID)
 				}
 			}
 		} else if mapping.IsDeleted {
@@ -516,7 +516,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 		for _, transform := range mapper.entityToItemCustomTransform {
 			err := transform(entity, item)
 			if err != nil {
-				return err
+				return fmt.Errorf("custom transform failed. mapper: %+v, entity: %+v, error: %w", mapper, entity, err)
 			}
 		}
 	}

@@ -185,7 +185,7 @@ func TestMapOutgoingItemWithIdentityButMissingValue(t *testing.T) {
 		t.Error("should have failed with missing property")
 	}
 
-	if err.Error() != "property id is required" {
+	if !strings.Contains(err.Error(), "property id is required") {
 		t.Error("wrong error message")
 	}
 }
@@ -413,7 +413,7 @@ func TestMapOutgoingItemWithMissingRequiredProperty(t *testing.T) {
 		t.Error("should have failed with missing required property")
 	}
 
-	if err.Error() != "property name is required" {
+	if !strings.Contains(err.Error(), "property name is required") {
 		t.Error("wrong error message")
 	}
 }
@@ -448,7 +448,7 @@ func TestMapOutgoingItemWithMissingEntityPropertyNameForPropertyMapping(t *testi
 		t.Error("should have failed with missing entity property name")
 	}
 
-	if err.Error() != "entity property name is required for mapping" {
+	if !strings.Contains(err.Error(), "entity property name is required for mapping") {
 		t.Error("wrong error message")
 	}
 }
@@ -643,7 +643,7 @@ func TestMapOutgoingItemWithWrongDeletedProperty(t *testing.T) {
 		t.Error("should have failed with wrong value type")
 	}
 
-	if err.Error() != "IsDeleted property 'name' must be a bool" {
+	if !strings.Contains(err.Error(), "IsDeleted property 'name' must be a bool") {
 		t.Error("wrong error message")
 	}
 }
@@ -703,7 +703,8 @@ func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
 		t.Error("should have failed with wrong value type")
 	}
 
-	if err.Error() != "IsRecorded property 'name' must be a uint64 (unix timestamp), unsupported type string" {
+	if !strings.Contains(err.Error(), "IsRecorded property 'name' must be a uint64 (unix timestamp)") {
+		println(err.Error())
 		t.Error("wrong error message")
 	}
 }
