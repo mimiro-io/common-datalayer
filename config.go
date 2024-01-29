@@ -2,6 +2,7 @@ package common_datalayer
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -87,6 +88,46 @@ type ItemToEntityPropertyMapping struct {
 }
 
 /******************************************************************************/
+type EnvOverride struct {
+	EnvVar   string
+	ConfKey  string
+	Required bool
+}
+
+func Env(key string, specs ...any) EnvOverride {
+	e := EnvOverride{EnvVar: key}
+	for _, spec := range specs {
+		switch v := spec.(type) {
+		case bool:
+			e.Required = v
+		case string:
+			e.ConfKey = v
+		}
+	}
+	return e
+}
+
+func BuildNativeSystemEnvOverrides(envOverrides ...EnvOverride) func(config *Config) error {
+	return func(config *Config) error {
+		for _, envOverride := range envOverrides {
+			upper := strings.ToUpper(envOverride.EnvVar)
+			key := strings.ToLower(envOverride.EnvVar)
+			if envOverride.ConfKey != "" {
+				key = envOverride.ConfKey
+			}
+			if v, ok := os.LookupEnv(upper); ok {
+				config.NativeSystemConfig[key] = v
+			} else if envOverride.Required {
+				_, confFound := config.NativeSystemConfig[key]
+				if !confFound {
+					return fmt.Errorf("required system_config variable %s not found in config nor LookupEnv(%s)", key, upper)
+				}
+			}
+
+		}
+		return nil
+	}
+}
 
 func (c *Config) GetDatasetDefinition(dataset string) *DatasetDefinition {
 	for _, def := range c.DatasetDefinitions {

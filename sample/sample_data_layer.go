@@ -13,6 +13,12 @@ import (
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
 func EnrichConfig(config *layer.Config) error {
 	config.NativeSystemConfig["env"] = "local"
+	layer.BuildNativeSystemEnvOverrides(
+		layer.Env("db_name", true),           // required env var. will fail if neiter "db_name" in json nor "DB_NAME" in env
+		layer.Env("db_user", true, "dbUser"), // override jsonkey with "dbUser"
+		layer.Env("db_pwd", true),
+		layer.Env("db_timeout"), // optional env var. will not fail if missing in both json and ENV
+	)(config)
 	return nil
 }
 
