@@ -44,7 +44,7 @@ func main() {
     serviceRunner.WithEnrichConfig(EnrichConfig)
     err := serviceRunner.Start()
     if err != nil {
-      panic(err)
+        panic(err)
     }
 }
 ```

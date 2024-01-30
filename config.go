@@ -94,6 +94,7 @@ type EnvOverride struct {
 	Required bool
 }
 
+// Env function to conveniently construct EnvOverride instances
 func Env(key string, specs ...any) EnvOverride {
 	e := EnvOverride{EnvVar: key}
 	for _, spec := range specs {
@@ -107,6 +108,10 @@ func Env(key string, specs ...any) EnvOverride {
 	return e
 }
 
+// BuildNativeSystemEnvOverrides can be plugged into `WithEnrichConfig`
+//
+//	it takes a variadic parameter list, each of which declares an environment variable
+//	that the layer will try to look up at start, and add to system_config.
 func BuildNativeSystemEnvOverrides(envOverrides ...EnvOverride) func(config *Config) error {
 	return func(config *Config) error {
 		for _, envOverride := range envOverrides {
