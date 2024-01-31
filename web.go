@@ -230,10 +230,25 @@ func (ws *dataLayerWebService) getEntities(c echo.Context) error {
 		return err.toHTTPError()
 	}
 
+	since := c.QueryParam("since")
+	if since != "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "since parameter is not supported for GET entities")
+	}
+
 	// get the from query param
 	from := c.QueryParam("from")
 
-	entityIterator, err := ds.Entities(from, 10000)
+	take := 0 // default to 0 indicating no limit
+	limit := c.QueryParam("limit")
+	if limit != "" {
+		limitVal, err := strconv.Atoi(limit)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "could not parse the limit parameter")
+		}
+		take = limitVal
+	}
+
+	entityIterator, err := ds.Entities(from, take)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -252,15 +267,14 @@ func (ws *dataLayerWebService) getChanges(c echo.Context) error {
 	// get since query param
 	since := c.QueryParam("since")
 
-	// get the take param
-	takeParam := c.QueryParam("take")
-	take := 0
-	if takeParam != "" {
-		var perr error
-		take, perr = strconv.Atoi(takeParam)
-		if perr != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "could not parse the take parameter")
+	take := 0 // default to 0 indicating no limit
+	limit := c.QueryParam("limit")
+	if limit != "" {
+		limitVal, err := strconv.Atoi(limit)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "could not parse the limit parameter")
 		}
+		take = limitVal
 	}
 
 	// get the latestOnly param

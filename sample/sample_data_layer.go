@@ -111,12 +111,12 @@ func (ds *SampleDataset) Name() string {
 	return ds.dsName
 }
 
-func (ds *SampleDataset) Changes(since string, take int, _ bool) (layer.EntityIterator, layer.LayerError) {
+func (ds *SampleDataset) Changes(since string, limit int, latestOnly bool) (layer.EntityIterator, layer.LayerError) {
 	return &SampleEntityIterator{data: ds.data, mapper: ds.mapper}, nil
 }
 
-func (ds *SampleDataset) Entities(since string, take int) (layer.EntityIterator, layer.LayerError) {
-	return ds.Changes(since, take, true)
+func (ds *SampleDataset) Entities(from string, limit int) (layer.EntityIterator, layer.LayerError) {
+	return &SampleEntityIterator{data: ds.data, mapper: ds.mapper}, nil
 }
 
 func (ds *SampleDataset) MetaData() map[string]any {
