@@ -13,7 +13,12 @@ import (
 // EnrichConfig is a function that can be used to enrich the config by reading additional files or environment variables
 func EnrichConfig(config *layer.Config) error {
 	config.NativeSystemConfig["env"] = "local"
-	return nil
+	return layer.BuildNativeSystemEnvOverrides(
+		layer.Env("db_name", true),           // required env var. will fail if neiter "db_name" in json nor "DB_NAME" in env
+		layer.Env("db_user", true, "dbUser"), // override jsonkey with "dbUser"
+		layer.Env("db_pwd", true),
+		layer.Env("db_timeout"), // optional env var. will not fail if missing in both json and ENV
+	)(config)
 }
 
 /*********************************************************************************************************************/
@@ -175,7 +180,7 @@ func (sdw *SampleDatasetWriter) Close() layer.LayerError {
 
 func (sdw *SampleDatasetWriter) Write(entity *egdm.Entity) layer.LayerError {
 	// convert to DataObject
-	dataObject := &DataObject{ID: entity.ID, Props: make(map[string]any)}
+	dataObject := &DataObject{ID: entity.ID, Props: map[string]any{}}
 	err := sdw.mapper.MapEntityToItem(entity, dataObject)
 	if err != nil {
 		return layer.Err(err, layer.LayerErrorInternal)
