@@ -7,6 +7,30 @@ import (
 	"io"
 )
 
+type JsonItemFactory struct{}
+
+func (j *JsonItemFactory) NewItem() common_datalayer.Item {
+	return &JsonItem{data: make(map[string]any)}
+}
+
+type JsonItemWriterCloser struct {
+	data    io.WriteCloser
+	encoder *json.Encoder
+}
+
+func NewJsonItemWriterCloser(sourceConfig map[string]any, data io.WriteCloser) (*JsonItemWriterCloser, error) {
+	enc := json.NewEncoder(data)
+	return &JsonItemWriterCloser{data: data, encoder: enc}, nil
+}
+
+func (j *JsonItemWriterCloser) Close() error {
+	return j.data.Close()
+}
+
+func (j *JsonItemWriterCloser) Write(item common_datalayer.Item) error {
+	return j.encoder.Encode(item.NativeItem())
+}
+
 type JsonItemReadCloser struct {
 	data    io.ReadCloser
 	decoder *json.Decoder
