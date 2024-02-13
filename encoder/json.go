@@ -7,36 +7,59 @@ import (
 	"io"
 )
 
+func NewJsonItemFactory() ItemFactory {
+	return &JsonItemFactory{}
+}
+
 type JsonItemFactory struct{}
 
 func (j *JsonItemFactory) NewItem() common_datalayer.Item {
 	return &JsonItem{data: make(map[string]any)}
 }
 
-type JsonItemWriterCloser struct {
-	data    io.WriteCloser
-	encoder *json.Encoder
+type JsonItemWriter struct {
+	data             io.WriteCloser
+	encoder          *json.Encoder
+	firstItemWritten bool
 }
 
-func NewJsonItemWriterCloser(sourceConfig map[string]any, data io.WriteCloser) (*JsonItemWriterCloser, error) {
+func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser) (*JsonItemWriter, error) {
 	enc := json.NewEncoder(data)
-	return &JsonItemWriterCloser{data: data, encoder: enc}, nil
+	_, err := data.Write([]byte("[")) // write the start of the array
+	if err != nil {
+		return nil, err
+	}
+	return &JsonItemWriter{data: data, encoder: enc}, nil
 }
 
-func (j *JsonItemWriterCloser) Close() error {
+func (j *JsonItemWriter) Close() error {
+	_, err := j.data.Write([]byte("]")) // write the end of the array
+	if err != nil {
+		return err
+	}
 	return j.data.Close()
 }
 
-func (j *JsonItemWriterCloser) Write(item common_datalayer.Item) error {
+func (j *JsonItemWriter) Write(item common_datalayer.Item) error {
+	// if first item written, write a comma
+	if j.firstItemWritten {
+		_, err := j.data.Write([]byte(","))
+		if err != nil {
+			return err
+		}
+	} else {
+		j.firstItemWritten = true
+	}
+
 	return j.encoder.Encode(item.NativeItem())
 }
 
-type JsonItemReadCloser struct {
+type JsonItemIterator struct {
 	data    io.ReadCloser
 	decoder *json.Decoder
 }
 
-func NewJsonItemReadCloser(sourceConfig map[string]any, data io.ReadCloser) (*JsonItemReadCloser, error) {
+func NewJsonItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*JsonItemIterator, error) {
 	// different ways the data can be encoded
 	// 1. array of objects
 	// 2. object with a key that is an array of objects
@@ -55,14 +78,14 @@ func NewJsonItemReadCloser(sourceConfig map[string]any, data io.ReadCloser) (*Js
 		return nil, errors.New("expected [ at start of data stream")
 	}
 
-	return &JsonItemReadCloser{data: data, decoder: dec}, nil
+	return &JsonItemIterator{data: data, decoder: dec}, nil
 }
 
-func (j *JsonItemReadCloser) Close() error {
+func (j *JsonItemIterator) Close() error {
 	return j.data.Close()
 }
 
-func (j *JsonItemReadCloser) Read() (common_datalayer.Item, error) {
+func (j *JsonItemIterator) Read() (common_datalayer.Item, error) {
 	if j.decoder.More() {
 		var obj map[string]interface{}
 		err := j.decoder.Decode(&obj)

@@ -143,7 +143,7 @@ func (f FileSystemDataset) Changes(since string, limit int, latestOnly bool) (la
 	}
 
 	mapper := layer.NewMapper(f.logger, nil, f.datasetDefinition.OutgoingMappingConfig)
-	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, dataFiles, mapper, "", nil)
+	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, dataFiles, mapper, "")
 	return iterator, nil
 }
 
@@ -152,27 +152,26 @@ func (f FileSystemDataset) Entities(from string, limit int) (layer.EntityIterato
 	panic("implement me")
 }
 
-func NewFileCollectionEntityIterator(sourceConfig map[string]any, path string, files []os.DirEntry, mapper *layer.Mapper, token string, since *time.Time) *FileCollectionEntityIterator {
-	return &FileCollectionEntityIterator{sourceConfig: sourceConfig, mapper: mapper, token: token, since: since, path: path, files: files, filesIndex: 0}
+func NewFileCollectionEntityIterator(sourceConfig map[string]any, path string, files []os.DirEntry, mapper *layer.Mapper, token string) *FileCollectionEntityIterator {
+	return &FileCollectionEntityIterator{sourceConfig: sourceConfig, mapper: mapper, token: token, path: path, files: files, filesIndex: 0}
 }
 
 type FileCollectionEntityIterator struct {
 	mapper            *layer.Mapper
 	token             string
-	since             *time.Time
 	path              string
 	files             []os.DirEntry
 	filesIndex        int
-	currentItemReader encoder.ItemReadCloser
+	currentItemReader encoder.ItemIterator
 	sourceConfig      map[string]any
 }
 
-func (f FileCollectionEntityIterator) Context() *egdm.Context {
-	//TODO implement me
-	panic("implement me")
+func (f *FileCollectionEntityIterator) Context() *egdm.Context {
+	ctx := egdm.NewNamespaceContext()
+	return ctx.AsContext()
 }
 
-func (f FileCollectionEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
+func (f *FileCollectionEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
 	if f.currentItemReader == nil {
 		if f.filesIndex < len(f.files) {
 			// initialize the current file entity iterator
@@ -226,14 +225,14 @@ func (f FileCollectionEntityIterator) Next() (*egdm.Entity, layer.LayerError) {
 	}
 }
 
-func (f FileCollectionEntityIterator) NewItemReadCloser(filePath string, sourceConfig map[string]any) (encoder.ItemReadCloser, error) {
+func (f *FileCollectionEntityIterator) NewItemReadCloser(filePath string, sourceConfig map[string]any) (encoder.ItemIterator, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, layer.Err(fmt.Errorf("could not open file %s", filePath), layer.LayerErrorInternal)
 	}
 
 	// get encoder for the file
-	itemReader, err := encoder.NewItemReadCloser(sourceConfig, file)
+	itemReader, err := encoder.NewItemIterator(sourceConfig, file)
 	if err != nil {
 		return nil, layer.Err(fmt.Errorf("could not create encoder specified in dataset source config"), layer.LayerErrorBadParameter)
 	}
@@ -241,12 +240,16 @@ func (f FileCollectionEntityIterator) NewItemReadCloser(filePath string, sourceC
 	return itemReader, nil
 }
 
-func (f FileCollectionEntityIterator) Token() (*egdm.Continuation, layer.LayerError) {
-	//TODO implement me
-	panic("implement me")
+func (f *FileCollectionEntityIterator) Token() (*egdm.Continuation, layer.LayerError) {
+	cont := egdm.NewContinuation()
+	cont.Token = f.token
+	return cont, nil
 }
 
-func (f FileCollectionEntityIterator) Close() layer.LayerError {
-	//TODO implement me
-	panic("implement me")
+func (f *FileCollectionEntityIterator) Close() layer.LayerError {
+	err := f.currentItemReader.Close()
+	if err != nil {
+		return layer.Err(fmt.Errorf("could not close item reader because %s", err.Error()), layer.LayerErrorInternal)
+	}
+	return nil
 }

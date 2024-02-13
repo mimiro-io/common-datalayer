@@ -6,27 +6,27 @@ import (
 	"io"
 )
 
-func NewItemReadCloser(sourceConfig map[string]any, data io.ReadCloser) (ItemReadCloser, error) {
+func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemIterator, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
 
 	if encoding == "json" {
-		return NewJsonItemReadCloser(sourceConfig, data)
+		return NewJsonItemIterator(sourceConfig, data)
 	}
 
 	return nil, nil
 }
 
-func NewItemWriterCloser(sourceConfig map[string]any, data io.WriteCloser) (ItemWriterCloser, error) {
+func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser) (ItemWriter, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
 
 	if encoding == "json" {
-		return NewJsonItemWriterCloser(sourceConfig, data)
+		return NewJsonItemWriter(sourceConfig, data)
 	}
 
 	return nil, nil
@@ -49,12 +49,12 @@ type ItemFactory interface {
 	NewItem() common_datalayer.Item
 }
 
-type ItemReadCloser interface {
+type ItemIterator interface {
 	Read() (common_datalayer.Item, error)
 	Close() error
 }
 
-type ItemWriterCloser interface {
+type ItemWriter interface {
 	Write(item common_datalayer.Item) error
 	Close() error
 }
