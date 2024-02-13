@@ -52,7 +52,6 @@ func (serviceRunner *ServiceRunner) configure() {
 		config.LayerServiceConfig.ServiceName,
 		config.LayerServiceConfig.LogFormat,
 		config.LayerServiceConfig.LogLevel,
-		config.LayerServiceConfig.LogWithoutTime,
 	)
 	serviceRunner.logger = logger
 

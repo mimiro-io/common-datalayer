@@ -3,7 +3,7 @@
     "port": "8090",
     "service_name": "sample_service",
     "log_level": "DEBUG",
-    "log_without_time": true,
+    "log_format": "json",
     "config_refresh_interval": "2s"
   },
   "system_config": {
