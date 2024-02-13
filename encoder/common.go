@@ -19,14 +19,14 @@ func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemItera
 	return nil, nil
 }
 
-func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser) (ItemWriter, error) {
+func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (ItemWriter, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
 
 	if encoding == "json" {
-		return NewJsonItemWriter(sourceConfig, data)
+		return NewJsonItemWriter(sourceConfig, data, batchInfo)
 	}
 
 	return nil, nil

@@ -79,7 +79,7 @@ func TestJsonWrite(t *testing.T) {
 
 	itemFactory := NewJsonItemFactory()
 
-	writer, err := NewJsonItemWriter(make(map[string]any), file)
+	writer, err := NewJsonItemWriter(make(map[string]any), file, nil)
 	if err != nil {
 		t.Error(err)
 	}

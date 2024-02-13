@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/go-uuid"
 	layer "github.com/mimiro-io/common-datalayer"
 	"github.com/mimiro-io/common-datalayer/encoder"
 	egdm "github.com/mimiro-io/entity-graph-data-model"
@@ -52,6 +53,9 @@ func (dl *FileSystemDataLayer) UpdateConfiguration(config *layer.Config) layer.L
 
 func (dl *FileSystemDataLayer) Dataset(dataset string) (layer.Dataset, layer.LayerError) {
 	ds := &FileSystemDataset{name: dataset}
+
+	// TODO: load other config
+
 	return ds, nil
 }
 
@@ -73,8 +77,8 @@ type FileSystemDataset struct {
 	path                        string
 	filePattern                 string
 	supportSinceByFileTimestamp bool
-	supportSinceByDataProperty  string
-	isDeletedProperty           string
+	fullSyncFileName            string
+	incrementalFileName         string
 }
 
 func (f FileSystemDataset) MetaData() map[string]any {
@@ -86,13 +90,74 @@ func (f FileSystemDataset) Name() string {
 }
 
 func (f FileSystemDataset) FullSync(ctx context.Context, batchInfo layer.BatchInfo) (layer.DatasetWriter, layer.LayerError) {
-	//TODO implement me
-	panic("implement me")
+	var file *os.File
+	var err error
+	filePath := filepath.Join(f.path, f.fullSyncFileName)
+	if batchInfo.IsStartBatch {
+		file, err = os.Create(filePath)
+		if err != nil {
+			return nil, layer.Err(fmt.Errorf("could not create file %s", filePath), layer.LayerErrorInternal)
+		}
+	} else {
+		file, err = os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return nil, layer.Err(fmt.Errorf("could not open file %s", filePath), layer.LayerErrorInternal)
+		}
+	}
+
+	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, file, &batchInfo)
+	factory, err := encoder.NewItemFactory(f.datasetDefinition.SourceConfig)
+	mapper := layer.NewMapper(f.logger, f.datasetDefinition.IncomingMappingConfig, f.datasetDefinition.OutgoingMappingConfig)
+	datasetWriter := &FileSystemDatasetWriter{logger: f.logger, enc: enc, mapper: mapper, factory: factory}
+
+	return datasetWriter, nil
 }
 
 func (f FileSystemDataset) Incremental(ctx context.Context) (layer.DatasetWriter, layer.LayerError) {
-	//TODO implement me
-	panic("implement me")
+	id, _ := uuid.GenerateUUID()
+	partfileName := fmt.Sprintf("part-%s-%s", id, f.incrementalFileName)
+	filePath := filepath.Join(f.path, partfileName)
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, layer.Err(fmt.Errorf("could not create file %s", filePath), layer.LayerErrorInternal)
+	}
+
+	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, file, nil)
+	factory, err := encoder.NewItemFactory(f.datasetDefinition.SourceConfig)
+	mapper := layer.NewMapper(f.logger, f.datasetDefinition.IncomingMappingConfig, f.datasetDefinition.OutgoingMappingConfig)
+	datasetWriter := &FileSystemDatasetWriter{logger: f.logger, enc: enc, mapper: mapper, factory: factory}
+
+	return datasetWriter, nil
+}
+
+type FileSystemDatasetWriter struct {
+	logger  layer.Logger
+	enc     encoder.ItemWriter
+	factory encoder.ItemFactory
+	mapper  *layer.Mapper
+}
+
+func (f FileSystemDatasetWriter) Write(entity *egdm.Entity) layer.LayerError {
+	item := f.factory.NewItem()
+	err := f.mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		return layer.Err(fmt.Errorf("could not map entity to item because %s", err.Error()), layer.LayerErrorInternal)
+	}
+
+	err = f.enc.Write(item)
+	if err != nil {
+		return layer.Err(fmt.Errorf("could not write item to file because %s", err.Error()), layer.LayerErrorInternal)
+	}
+
+	return nil
+}
+
+func (f FileSystemDatasetWriter) Close() layer.LayerError {
+	err := f.enc.Close()
+	if err != nil {
+		return layer.Err(fmt.Errorf("could not close file because %s", err.Error()), layer.LayerErrorInternal)
+	}
+	return nil
 }
 
 func (f FileSystemDataset) Changes(since string, limit int, latestOnly bool) (layer.EntityIterator, layer.LayerError) {
@@ -148,8 +213,32 @@ func (f FileSystemDataset) Changes(since string, limit int, latestOnly bool) (la
 }
 
 func (f FileSystemDataset) Entities(from string, limit int) (layer.EntityIterator, layer.LayerError) {
-	//TODO implement me
-	panic("implement me")
+	// get root folder
+	if _, err := os.Stat(f.path); os.IsNotExist(err) {
+		return nil, layer.Err(fmt.Errorf("path %s does not exist", f.path), layer.LayerErrorBadParameter)
+	}
+
+	// get all files in the folder that match the file pattern
+	files, err := os.ReadDir(f.path)
+	if err != nil {
+		return nil, layer.Err(fmt.Errorf("could not read directory %s", f.path), layer.LayerErrorBadParameter)
+	}
+
+	dataFiles := make([]os.DirEntry, 0)
+	for _, file := range files {
+		fileName := file.Name()
+		isMatch, err := filepath.Match(f.filePattern, fileName)
+		if err != nil {
+			return nil, layer.Err(fmt.Errorf("could not match file pattern %s", f.filePattern), layer.LayerErrorInternal)
+		}
+		if isMatch {
+			dataFiles = append(dataFiles, file)
+		}
+	}
+
+	mapper := layer.NewMapper(f.logger, nil, f.datasetDefinition.OutgoingMappingConfig)
+	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, dataFiles, mapper, "")
+	return iterator, nil
 }
 
 func NewFileCollectionEntityIterator(sourceConfig map[string]any, path string, files []os.DirEntry, mapper *layer.Mapper, token string) *FileCollectionEntityIterator {

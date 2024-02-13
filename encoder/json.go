@@ -21,21 +21,45 @@ type JsonItemWriter struct {
 	data             io.WriteCloser
 	encoder          *json.Encoder
 	firstItemWritten bool
+	batchInfo        *common_datalayer.BatchInfo
 }
 
-func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser) (*JsonItemWriter, error) {
+func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*JsonItemWriter, error) {
 	enc := json.NewEncoder(data)
-	_, err := data.Write([]byte("[")) // write the start of the array
-	if err != nil {
-		return nil, err
+	writer := &JsonItemWriter{data: data, encoder: enc, batchInfo: batchInfo}
+
+	if batchInfo != nil {
+		if batchInfo.IsStartBatch {
+			_, err := data.Write([]byte("[")) // write the start of the array
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			writer.firstItemWritten = true
+		}
+	} else {
+		_, err := data.Write([]byte("[")) // write the start of the array
+		if err != nil {
+			return nil, err
+		}
 	}
-	return &JsonItemWriter{data: data, encoder: enc}, nil
+
+	return writer, nil
 }
 
 func (j *JsonItemWriter) Close() error {
-	_, err := j.data.Write([]byte("]")) // write the end of the array
-	if err != nil {
-		return err
+	if j.batchInfo != nil {
+		if j.batchInfo.IsLastBatch {
+			_, err := j.data.Write([]byte("]")) // write the end of the array
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		_, err := j.data.Write([]byte("]")) // write the end of the array
+		if err != nil {
+			return err
+		}
 	}
 	return j.data.Close()
 }
