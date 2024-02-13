@@ -86,7 +86,7 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug(message, args...)
 }
 
-func newLogger(serviceName string, format string, level string) Logger {
+func newLogger(serviceName string, format string, level string, omitTime bool) Logger {
 	var slevel slog.Level
 	switch strings.ToLower(level) {
 	case "debug":
@@ -123,6 +123,9 @@ func newLogger(serviceName string, format string, level string) Logger {
 					})
 					break
 				}
+			}
+			if omitTime && a.Key == slog.TimeKey { // remove time from log entry
+				return slog.Attr{}
 			}
 			return a
 		},

@@ -27,6 +27,7 @@ type LayerServiceConfig struct {
 	LogLevel              string         `json:"log_level"`
 	LogFormat             string         `json:"log_format"`
 	StatsdAgentAddress    string         `json:"statsd_agent_address"`
+	LogWithoutTime        bool           `json:"log_without_time"`
 	StatsdEnabled         bool           `json:"statsd_enabled"`
 }
 
@@ -245,6 +246,11 @@ func addEnvOverrides(c *Config) {
 	val, found = os.LookupEnv("LOG_FORMAT")
 	if found {
 		c.LayerServiceConfig.LogFormat = val
+	}
+
+	val, found = os.LookupEnv("LOG_WITHOUT_TIME")
+	if found {
+		c.LayerServiceConfig.LogWithoutTime = val == "true"
 	}
 }
 
