@@ -1,11 +1,14 @@
 package common_datalayer
 
 import (
-	"log/slog"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 )
@@ -63,77 +66,77 @@ func newMetrics(conf *Config) (Metrics, error) {
 }
 
 type logger struct {
-	log *slog.Logger
+	log zerolog.Logger
 }
 
 func (l *logger) With(name string, value string) Logger {
-	return &logger{l.log.With(name, value)}
+	subLogger := l.log.With().Str(name, value).Logger()
+	return &logger{subLogger}
 }
 
 func (l *logger) Warn(message string, args ...any) {
-	l.log.Warn(message, args...)
+	l.log.Warn().Fields(args).Msg(message)
 }
 
 func (l *logger) Error(message string, args ...any) {
-	l.log.Error(message, args...)
+	l.log.Error().Fields(args).Msg(message)
 }
 
 func (l *logger) Info(message string, args ...any) {
-	l.log.Info(message, args...)
+	l.log.Info().Fields(args).Msg(message)
 }
 
 func (l *logger) Debug(message string, args ...any) {
-	l.log.Debug(message, args...)
+	l.log.Debug().Fields(args).Msg(message)
 }
 
 func newLogger(serviceName string, format string, level string) Logger {
-	var slevel slog.Level
+	var slevel zerolog.Level
 	switch strings.ToLower(level) {
 	case "debug":
-		slevel = slog.LevelDebug
+		slevel = zerolog.DebugLevel
 	case "info":
-		slevel = slog.LevelInfo
+		slevel = zerolog.InfoLevel
 	case "warn":
-		slevel = slog.LevelWarn
+		slevel = zerolog.WarnLevel
 	case "error":
-		slevel = slog.LevelError
+		slevel = zerolog.ErrorLevel
 	default:
-		slevel = slog.LevelInfo
+		slevel = zerolog.InfoLevel
 	}
-	opts := &slog.HandlerOptions{
-		AddSource: true,
-		Level:     slevel,
-		// traverse call stack to find the first non-log/slog function and use that as the source
-		ReplaceAttr: func(_ []string, a slog.Attr) slog.Attr {
-			if a.Key == "source" {
-				pcs := make([]uintptr, 10)
-				runtime.Callers(2, pcs)
-				fs := runtime.CallersFrames(pcs)
+	// Default level for this example is info, unless debug flag is present
+	zerolog.SetGlobalLevel(slevel)
+	zerolog.TimestampFieldName = "ts"
+	zerolog.MessageFieldName = "msg"
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnixMs
+	zerolog.CallerMarshalFunc = func(pc uintptr, file string, line int) string {
+		pcs := make([]uintptr, 10)
+		runtime.Callers(2, pcs)
+		fs := runtime.CallersFrames(pcs)
 
-				f, more := fs.Next()
-				for more {
-					if strings.HasPrefix(f.Function, "log/slog") || strings.Contains(f.Function, "(*logger).") {
-						f, more = fs.Next()
-						continue
-					}
-					a.Value = slog.AnyValue(&slog.Source{
-						Function: f.Function,
-						File:     f.File,
-						Line:     f.Line,
-					})
-					break
-				}
+		f, more := fs.Next()
+		for more {
+			if strings.HasPrefix(f.Function, "github.com/rs/zerolog") || strings.Contains(f.Function, "(*logger).") {
+				f, more = fs.Next()
+				continue
 			}
-			return a
-		},
+			shortFile := filepath.Base(f.File)
+			shortFunc := filepath.Base(f.Function)
+			return shortFunc + " (" + shortFile + ":" + strconv.Itoa(f.Line) + ")"
+		}
+		return file + ":" + strconv.Itoa(line)
 	}
-	var outputHandler slog.Handler = slog.NewJSONHandler(os.Stdout, opts)
+
+	base := zerolog.New(os.Stdout)
 	if format == "text" {
-		outputHandler = slog.NewTextHandler(os.Stdout, opts)
+		base = base.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
 	}
-	log := slog.New(outputHandler).With(
-		"go.version", runtime.Version(),
-		"service", serviceName)
-	// log = slog.New(slog.NewTextHandler(os.Stdout, nil))
+	log := base.With().
+		Timestamp().
+		Caller().
+		Str("go.version", runtime.Version()).
+		Str("service", serviceName).
+		Logger()
+
 	return &logger{log}
 }
