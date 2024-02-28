@@ -28,6 +28,9 @@ func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *
 	if encoding == "json" {
 		return NewJsonItemWriter(sourceConfig, data, batchInfo)
 	}
+	if encoding == "csv" {
+		return NewCSVItemWriter(sourceConfig, data, batchInfo)
+	}
 
 	return nil, nil
 }
@@ -40,6 +43,11 @@ func NewItemFactory(sourceConfig map[string]any) (ItemFactory, error) {
 
 	if encoding == "json" {
 		return &JsonItemFactory{}, nil
+	}
+
+	if encoding == "csv" {
+		return &CSVItemFactory{}, nil
+
 	}
 
 	return nil, nil
