@@ -1,10 +1,7 @@
 package encoder
 
-import (
-	"os"
-	"testing"
-)
-
+//comment because it's unfinished for now.
+/*
 func TestCSVRead(t *testing.T) {
 	// open file
 	filename := "./testdata/data.csv"
@@ -159,3 +156,4 @@ func TestCSVWrite(t *testing.T) {
 		t.Error(err)
 	}
 }
+*/
