@@ -3,11 +3,9 @@ package encoder
 import (
 	"encoding/csv"
 	"errors"
-	"fmt"
 	common_datalayer "github.com/mimiro-io/common-datalayer"
 	"io"
 	"strconv"
-	"strings"
 )
 
 func NewCSVItemFactory() ItemFactory {
@@ -31,7 +29,6 @@ type CSVItemWriter struct {
 	separator        string
 	encoding         string
 	validateFields   bool
-	headerWritten    bool
 	firstItemWritten bool
 }
 
@@ -46,27 +43,6 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 	if ok {
 		writer.columns = columnNames.([]string)
 	}
-	hasHeader, ok := sourceConfig["hasHeader"]
-	if ok {
-		writer.hasHeader = hasHeader.(bool)
-		// Should this check be here?
-		if writer.hasHeader {
-			if batchInfo != nil {
-				if batchInfo.IsStartBatch {
-					// create comma separated header row from writer.columns
-					headerRow := strings.Join(writer.columns, writer.separator)
-					_, err := data.Write([]byte(headerRow)) // write the header for the csv-file
-					// set headerWritten to true, so we don't write the header again
-					writer.headerWritten = true
-					if err != nil {
-						return nil, err
-					}
-				} else {
-					writer.firstItemWritten = true
-				}
-			}
-		}
-	}
 	columnSeparator, ok := sourceConfig["columnSeparator"]
 	if ok {
 		writer.separator = columnSeparator.(string)
@@ -79,6 +55,24 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 	if ok {
 		writer.validateFields = validateFields.(bool)
 	}
+	hasHeader, ok := sourceConfig["hasHeader"]
+	if ok {
+		writer.hasHeader = hasHeader.(bool)
+		// Should this check be here?
+		if writer.hasHeader {
+			if batchInfo != nil {
+				if batchInfo.IsStartBatch {
+					// create comma separated header row from writer.columns
+					//headerRow := strings.Join(writer.columns, writer.separator)
+					err := writer.encoder.Write(writer.columns) // write the header for the csv-file
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
 	return writer, nil
 }
 
@@ -88,66 +82,34 @@ func (c *CSVItemWriter) Close() error {
 
 func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
 	// TODO: fix me
-	// should this check be here?
 	written := 0
-	if c.headerWritten {
-		if c.firstItemWritten {
-			var r []string
+	var r []string
 
-			row := make(map[string]interface{})
-
-			for _, h := range c.columns {
-				if _, ok := row[h]; ok {
-					switch v := row[h].(type) {
-					case float64:
-						r = append(r, strconv.FormatFloat(v, 'f', 0, 64))
-					case string:
-						r = append(r, v)
-					case bool:
-						r = append(r, strconv.FormatBool(v))
-					}
-				} else {
-					r = append(r, "")
-				}
-			}
-			for _, col := range r {
-				written += len([]byte(col))
-			}
-			err := c.Write(item)
-			if err != nil {
-				return err
-			}
-			_, err = c.data.Write([]byte(","))
-			if err != nil {
-				return err
+	row := item.NativeItem().(map[string]any)
+	for _, h := range c.columns {
+		if _, ok := row[h]; ok {
+			switch v := row[h].(type) {
+			case float64:
+				r = append(r, strconv.FormatFloat(v, 'f', 0, 64))
+			case string:
+				r = append(r, v)
+			case bool:
+				r = append(r, strconv.FormatBool(v))
+			default:
+				r = append(r, "")
 			}
 		} else {
-			c.firstItemWritten = true
-		}
-	} else {
-		// write the header
-		headerRow := strings.Join(c.columns, c.separator)
-		_, err := c.data.Write([]byte(headerRow)) // write the header for the csv-file
-		// set headerWritten to true, so we don't write the header again
-		c.headerWritten = true
-		if err != nil {
-			return err
+			r = append(r, "")
 		}
 	}
-	/*	if writer.hasHeader {
-		if batchInfo != nil {
-			if batchInfo.IsStartBatch {
-				// create comma separated header row from writer.columns
-				headerRow := strings.Join(writer.columns, writer.separator)
-				_, err := data.Write([]byte(headerRow)) // write the header for the csv-file
-				// set headerWritten to true, so we don't write the header again
-				writer.headerWritten = true
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	}*/
+	for _, col := range r {
+		written += len([]byte(col))
+	}
+	err := c.encoder.Write(r)
+	if err != nil {
+		return err
+	}
+	c.encoder.Flush()
 	return nil
 }
 
@@ -168,7 +130,8 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 
 	columnSeparator, ok := sourceConfig["columnSeparator"]
 	if ok {
-		reader.separator = columnSeparator.(string)
+		// how to make this a rune in best way possible '' <- seems to be a way to say it's a rune, can we do that on a string?
+		reader.decoder.Comma = rune(columnSeparator.(string)[0])
 	}
 	encoding, ok := sourceConfig["encoding"]
 	if ok {
@@ -178,20 +141,27 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 	if ok {
 		reader.columns = columnNames.([]string)
 	}
-	// check if header is present and if so, validate amount fields
-	// do we want to do this here?
+	validateFields, ok := sourceConfig["validateFields"]
+	if ok {
+		if !validateFields.(bool) {
+			// if false
+			reader.decoder.FieldsPerRecord = -1
+		} else {
+			//checks the first field and sees how many columns there is, uses that as validation going forward.
+			//another option is to explicity set the number of columns in the config
+			reader.decoder.FieldsPerRecord = 0
+		}
+	}
 	header, err := dec.Read()
-	fmt.Sprintf(strings.Join(header, reader.separator))
-
 	if err != nil {
 		return nil, err
 	}
-	//
+	//probably obsolete
 	if len(header) > len(reader.columns) {
 		return nil, errors.New("header row does not match columns in source config")
 	}
 
-	return &CSVItemIterator{data: data, decoder: dec}, nil
+	return reader, nil
 }
 
 func (c *CSVItemIterator) Close() error {
@@ -200,7 +170,34 @@ func (c *CSVItemIterator) Close() error {
 
 func (c *CSVItemIterator) Read() (common_datalayer.Item, error) {
 	// TODO: fix me
-	return nil, nil
+	record, err := c.decoder.Read()
+
+	// create item from record
+	// care about data types here? look at sourceConfig for that
+
+	// columns to ignore
+	/*
+		ignoreColums := backend.DecodeConfig.IgnoreColumns
+		for k, v := range line {
+			if slices.Contains(ignoreColums, k) {
+				continue
+			}
+	*/
+	// if err is EOF, return nil, nil then file contains no more records
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil
+		}
+		return nil, err
+	}
+	// convert csv lines to array of structs
+	var entityProps = make(map[string]interface{})
+	for j, key := range c.columns {
+		entityProps[key] = record[j]
+
+	}
+
+	return &CSVItem{data: entityProps}, nil
 }
 
 type CSVItem struct {
