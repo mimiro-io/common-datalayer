@@ -5,6 +5,7 @@ import (
 	"errors"
 	common_datalayer "github.com/mimiro-io/common-datalayer"
 	"io"
+	"slices"
 	"strconv"
 )
 
@@ -18,12 +19,10 @@ func (c *CSVItemFactory) NewItem() common_datalayer.Item {
 	return &CSVItem{data: make(map[string]any)}
 }
 
-// TODO: fix me
-// differentiate between ENCODER and ENCODING with better naming
 type CSVItemWriter struct {
 	data             io.WriteCloser
 	batchInfo        *common_datalayer.BatchInfo
-	encoder          *csv.Writer
+	writer           *csv.Writer
 	columns          []string
 	hasHeader        bool
 	separator        string
@@ -34,7 +33,7 @@ type CSVItemWriter struct {
 
 func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*CSVItemWriter, error) {
 	enc := csv.NewWriter(data)
-	writer := &CSVItemWriter{data: data, encoder: enc, batchInfo: batchInfo}
+	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo}
 
 	// this can be implicitly creating the order of the columns
 	// OR we add the order field to the config to specify the order of the columns
@@ -56,18 +55,22 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 		writer.validateFields = validateFields.(bool)
 	}
 	hasHeader, ok := sourceConfig["hasHeader"]
+	// if no hasHeader still want to write data based on columns
+
 	if ok {
 		writer.hasHeader = hasHeader.(bool)
-		// Should this check be here?
 		if writer.hasHeader {
 			if batchInfo != nil {
 				if batchInfo.IsStartBatch {
-					// create comma separated header row from writer.columns
-					//headerRow := strings.Join(writer.columns, writer.separator)
-					err := writer.encoder.Write(writer.columns) // write the header for the csv-file
+					err := writer.writer.Write(writer.columns) // write the header for the csv-file
 					if err != nil {
 						return nil, err
 					}
+				}
+			} else {
+				err := writer.writer.Write(writer.columns) // write the header for the csv-file
+				if err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -77,11 +80,12 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 }
 
 func (c *CSVItemWriter) Close() error {
+	// can we flush here instead of on write?
+	c.writer.Flush()
 	return c.data.Close()
 }
 
 func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
-	// TODO: fix me
 	written := 0
 	var r []string
 
@@ -105,11 +109,10 @@ func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
 	for _, col := range r {
 		written += len([]byte(col))
 	}
-	err := c.encoder.Write(r)
+	err := c.writer.Write(r)
 	if err != nil {
 		return err
 	}
-	c.encoder.Flush()
 	return nil
 }
 
@@ -121,16 +124,17 @@ type CSVItemIterator struct {
 	columns        []string
 	separator      string
 	encoding       string
+	ignoreColumns  []string
 }
 
 func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVItemIterator, error) {
-	// TODO: fix me
 	dec := csv.NewReader(data)
 	reader := &CSVItemIterator{data: data, decoder: dec}
 
 	columnSeparator, ok := sourceConfig["columnSeparator"]
 	if ok {
-		// how to make this a rune in best way possible '' <- seems to be a way to say it's a rune, can we do that on a string?
+		// only working with characters for now, tabs doesn't work
+		//TODO: add support for tabs
 		reader.decoder.Comma = rune(columnSeparator.(string)[0])
 	}
 	encoding, ok := sourceConfig["encoding"]
@@ -141,6 +145,12 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 	if ok {
 		reader.columns = columnNames.([]string)
 	}
+	ignoreColumns, ok := sourceConfig["ignoreColumns"]
+	if ok {
+		reader.ignoreColumns = ignoreColumns.([]string)
+	}
+	// maybe not needed skipInvalidRows??
+
 	validateFields, ok := sourceConfig["validateFields"]
 	if ok {
 		if !validateFields.(bool) {
@@ -149,14 +159,16 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 		} else {
 			//checks the first field and sees how many columns there is, uses that as validation going forward.
 			//another option is to explicity set the number of columns in the config
-			reader.decoder.FieldsPerRecord = 0
+			reader.decoder.FieldsPerRecord = len(reader.columns)
 		}
+	} else {
+		// default is not to validate fields
+		reader.decoder.FieldsPerRecord = -1
 	}
-	header, err := dec.Read()
+	header, err := reader.decoder.Read()
 	if err != nil {
 		return nil, err
 	}
-	//probably obsolete
 	if len(header) > len(reader.columns) {
 		return nil, errors.New("header row does not match columns in source config")
 	}
@@ -169,32 +181,23 @@ func (c *CSVItemIterator) Close() error {
 }
 
 func (c *CSVItemIterator) Read() (common_datalayer.Item, error) {
-	// TODO: fix me
 	record, err := c.decoder.Read()
+	// care about data types here? look at sourceConfig for that if needed the config might be extended as:
+	// columns: [{name: "name", type: "string"}, {name: "age", type: "int"}]
+	// this means a change to how we are reading out columns in NewCSVItemIterator and NewCSVItemWriter
 
-	// create item from record
-	// care about data types here? look at sourceConfig for that
-
-	// columns to ignore
-	/*
-		ignoreColums := backend.DecodeConfig.IgnoreColumns
-		for k, v := range line {
-			if slices.Contains(ignoreColums, k) {
-				continue
-			}
-	*/
-	// if err is EOF, return nil, nil then file contains no more records
 	if err != nil {
 		if err == io.EOF {
 			return nil, nil
 		}
 		return nil, err
 	}
-	// convert csv lines to array of structs
 	var entityProps = make(map[string]interface{})
 	for j, key := range c.columns {
+		if slices.Contains(c.ignoreColumns, key) {
+			continue
+		}
 		entityProps[key] = record[j]
-
 	}
 
 	return &CSVItem{data: entityProps}, nil
