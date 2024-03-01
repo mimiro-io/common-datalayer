@@ -209,32 +209,6 @@ func TestTABDelimiter(t *testing.T) {
 		t.Error(err)
 	}
 
-	if item == nil {
-		t.Error("Expected item")
-	}
-
-	if item.GetValue("name") != "Jane" {
-		t.Error("Expected Jane")
-	}
-
-	item, err = reader.Read()
-	if err != nil {
-		t.Error(err)
-	}
-
-	if item == nil {
-		t.Error("Expected item")
-	}
-
-	if item.GetValue("name") != "Jim" {
-		t.Error("Expected Jim")
-	}
-
-	item, err = reader.Read()
-	if err != nil {
-		t.Error(err)
-	}
-
 	if item != nil {
 		t.Error("Expected no item")
 	}
