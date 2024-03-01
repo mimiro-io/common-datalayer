@@ -176,7 +176,7 @@ func TestCSVWrite(t *testing.T) {
 	}
 }
 
-/*func TestTABDelimiter(t *testing.T) {
+func TestTABDelimiter(t *testing.T) {
 	// Does not work with TAB delimiter as of now.
 	//TODO: Fix this
 	filename := "./testdata/data_tab.csv"
@@ -245,4 +245,3 @@ func TestCSVWrite(t *testing.T) {
 	}
 
 }
-*/

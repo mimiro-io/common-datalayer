@@ -80,7 +80,6 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 }
 
 func (c *CSVItemWriter) Close() error {
-	// can we flush here instead of on write?
 	c.writer.Flush()
 	return c.data.Close()
 }
@@ -135,7 +134,12 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 	if ok {
 		// only working with characters for now, tabs doesn't work
 		//TODO: add support for tabs
-		reader.decoder.Comma = rune(columnSeparator.(string)[0])
+		//reader.decoder.Comma = rune(columnSeparator.(string)[0])
+		err := errors.New("input string does not match allowed characters")
+		reader.decoder.Comma, err = stringToRune(columnSeparator.(string))
+		if err != nil {
+			return nil, err
+		}
 	}
 	encoding, ok := sourceConfig["encoding"]
 	if ok {
@@ -149,12 +153,9 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 	if ok {
 		reader.ignoreColumns = ignoreColumns.([]string)
 	}
-	// maybe not needed skipInvalidRows??
-
 	validateFields, ok := sourceConfig["validateFields"]
 	if ok {
 		if !validateFields.(bool) {
-			// if false
 			reader.decoder.FieldsPerRecord = -1
 		} else {
 			//checks the first field and sees how many columns there is, uses that as validation going forward.
@@ -225,4 +226,17 @@ func (item *CSVItem) GetPropertyNames() []string {
 
 func (item *CSVItem) NativeItem() any {
 	return item.data
+}
+
+func stringToRune(input string) (rune, error) {
+	switch input {
+	case ",":
+		return ',', nil
+	case "\t":
+		return '\t', nil
+	case " ":
+		return ' ', nil
+	default:
+		return 0, errors.New("input string does not match allowed characters")
+	}
 }
