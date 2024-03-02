@@ -177,8 +177,6 @@ func TestCSVWrite(t *testing.T) {
 }
 
 func TestTABDelimiter(t *testing.T) {
-	// Does not work with TAB delimiter as of now.
-	//TODO: Fix this
 	filename := "./testdata/data_tab.csv"
 	file, err := os.Open(filename)
 	if err != nil {
@@ -217,5 +215,74 @@ func TestTABDelimiter(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
 
+func TestTABDelimiterWriting(t *testing.T) {
+	filename := "./testdata/data_tab1.csv"
+	file, err := os.Create(filename)
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.Remove(filename)
+
+	sourceConfig := make(map[string]any)
+	sourceConfig["columnSeparator"] = "\t"
+	sourceConfig["encoding"] = "csv"
+	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
+	sourceConfig["hasHeader"] = true
+
+	// create item and writer, then write the item
+	itemFactory := NewCSVItemFactory()
+	writer, err := NewCSVItemWriter(sourceConfig, file, nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	item := itemFactory.NewItem()
+	item.SetValue("id", "3")
+	item.SetValue("name", "John")
+	item.SetValue("age", 25)
+	item.SetValue("worksfor", "Google")
+	err = writer.Write(item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Error(err)
+	}
+
+	file, err = os.Open(filename)
+	if err != nil {
+		t.Error(err)
+	}
+	reader, err := NewCSVItemIterator(sourceConfig, file)
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item == nil {
+		t.Error("Expected item")
+	}
+
+	if item.GetValue("name") != "John" {
+		t.Error("Expected John")
+	}
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item != nil {
+		t.Error("Expected no item")
+	}
+
+	err = reader.Close()
+	if err != nil {
+		t.Error(err)
+	}
 }

@@ -44,8 +44,14 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 	}
 	columnSeparator, ok := sourceConfig["columnSeparator"]
 	if ok {
+		var err error
 		writer.separator = columnSeparator.(string)
+		writer.writer.Comma, err = stringToRune(columnSeparator.(string))
+		if err != nil {
+			return nil, errors.New("input string does not match allowed characters")
+		}
 	}
+
 	encoding, ok := sourceConfig["encoding"]
 	if ok {
 		writer.encoding = encoding.(string)
@@ -98,6 +104,26 @@ func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
 				r = append(r, v)
 			case bool:
 				r = append(r, strconv.FormatBool(v))
+			case int:
+				r = append(r, strconv.Itoa(v))
+			case int64:
+				r = append(r, strconv.FormatInt(v, 10))
+			case int32:
+				r = append(r, strconv.FormatInt(int64(v), 10))
+			case int16:
+				r = append(r, strconv.FormatInt(int64(v), 10))
+			case int8:
+				r = append(r, strconv.FormatInt(int64(v), 10))
+			case uint:
+				r = append(r, strconv.FormatUint(uint64(v), 10))
+			case uint64:
+				r = append(r, strconv.FormatUint(v, 10))
+			case uint32:
+				r = append(r, strconv.FormatUint(uint64(v), 10))
+			case uint16:
+				r = append(r, strconv.FormatUint(uint64(v), 10))
+			case uint8:
+				r = append(r, strconv.FormatUint(uint64(v), 10))
 			default:
 				r = append(r, "")
 			}
