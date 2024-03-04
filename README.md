@@ -134,7 +134,25 @@ You can create a Markdown table from the data structure definition like this:
 
 #### source_config
 
-The `source_config` is a JSON Object and used to provide information about the dataset. This is intended to contain things like the name of the database table, any queries templates that are needed etc.
+The `source_config` is a JSON Object and used to provide information about the dataset. This is intended to contain things like the name of the database table, any queries templates that are needed etc. Example-usage below.
+
+##### example source_config for csv-encoded data
+
+| JSON Field              | Description                                                     |
+| ----------------------- | --------------------------------------------------------------- |
+| encoding                | Specifies what type of encoding the incoming data has           |
+| columns                 | Names and orders the different columns of the data              |
+| hasHeader               | Field decides if first row should be header or entitiy.         |
+| columnSeparator         | Define what character is used to separete the data in columns   |
+
+```json
+"sourceConfig":{
+    "encoding": "csv",
+    "columns" : ["id", "name", "age", "worksfor"],
+    "hasHeader": true, 
+    "columnSeparator": ","
+}
+```
 
 #### incoming_mapping_config
 
