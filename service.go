@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 func (serviceRunner *ServiceRunner) WithEnrichConfig(enrichConfig func(config *Config) error) *ServiceRunner {
@@ -76,6 +77,12 @@ func (serviceRunner *ServiceRunner) configure() {
 	if err != nil {
 		panic(err)
 	}
+
+	serviceRunner.stoppable = append(
+		serviceRunner.stoppable,
+		layerService,
+		serviceRunner.configUpdater,
+		serviceRunner.webService)
 }
 
 type ServiceRunner struct {
@@ -116,18 +123,13 @@ func (serviceRunner *ServiceRunner) StartAndWait() {
 }
 
 func (serviceRunner *ServiceRunner) Stop() error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	for _, stoppable := range serviceRunner.stoppable {
 		err := stoppable.Stop(ctx)
 		if err != nil {
 			return err
 		}
-	}
-
-	// also stop config updater
-	err := serviceRunner.configUpdater.Stop(ctx)
-	if err != nil {
-		return err
 	}
 
 	return nil
