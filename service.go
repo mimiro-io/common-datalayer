@@ -61,26 +61,26 @@ func (serviceRunner *ServiceRunner) configure() {
 		panic(err)
 	}
 
-	layerService, err := serviceRunner.createService(config, logger, metrics)
+	serviceRunner.layerService, err = serviceRunner.createService(config, logger, metrics)
 	if err != nil {
 		panic(err)
 	}
 
 	// create and start config updater
-	serviceRunner.configUpdater, err = newConfigUpdater(config, serviceRunner.enrichConfig, logger, layerService)
+	serviceRunner.configUpdater, err = newConfigUpdater(config, serviceRunner.enrichConfig, logger, serviceRunner.layerService)
 	if err != nil {
 		panic(err)
 	}
 
 	// create web service hook up with the service core
-	serviceRunner.webService, err = newDataLayerWebService(config, logger, metrics, layerService)
+	serviceRunner.webService, err = newDataLayerWebService(config, logger, metrics, serviceRunner.layerService)
 	if err != nil {
 		panic(err)
 	}
 
 	serviceRunner.stoppable = append(
 		serviceRunner.stoppable,
-		layerService,
+		serviceRunner.layerService,
 		serviceRunner.configUpdater,
 		serviceRunner.webService)
 }
@@ -92,7 +92,12 @@ type ServiceRunner struct {
 	configUpdater  *configUpdater
 	createService  func(config *Config, logger Logger, metrics Metrics) (DataLayerService, error)
 	configLocation string
+	layerService   DataLayerService
 	stoppable      []Stoppable
+}
+
+func (serviceRunner *ServiceRunner) LayerService() DataLayerService {
+	return serviceRunner.layerService
 }
 
 func (serviceRunner *ServiceRunner) Start() error {
