@@ -16,6 +16,10 @@ func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemItera
 		return NewJsonItemIterator(sourceConfig, data)
 	}
 
+	if encoding == "csv" {
+		return NewCSVItemIterator(sourceConfig, data)
+	}
+
 	return nil, nil
 }
 
