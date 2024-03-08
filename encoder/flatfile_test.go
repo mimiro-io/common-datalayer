@@ -128,10 +128,8 @@ func TestFlatFileWrite(t *testing.T) {
 	defer os.Remove(filename)
 
 	itemFactory := NewFlatFileItemFactory()
-	fieldOrder := []string{"id", "name", "age", "worksfor"}
 	fields := []map[string]interface{}{{"name": "id", "length": 2, "ignore": false}, {"name": "name", "length": 9, "ignore": false}, {"name": "age", "length": 3, "ignore": false}, {"name": "worksfor", "length": 8, "ignore": false}}
 	sourceConfig := make(map[string]any)
-	sourceConfig["fieldOrder"] = fieldOrder
 	sourceConfig["fields"] = fields
 	batchInfo := &common_datalayer.BatchInfo{SyncId: "1", IsLastBatch: false, IsStartBatch: true}
 	writer, err := NewFlatFileItemWriter(sourceConfig, file, batchInfo)

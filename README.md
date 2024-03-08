@@ -13,6 +13,7 @@
       - [incoming_mapping_config](#incomingmappingconfig)
       - [outgoing_mapping_config](#outgoingmappingconfig)
   - [The Mapper](#the-mapper)
+  - [The Encoder](#the-encoder)
   <!--toc:end-->
 
 ## Introduction
@@ -285,5 +286,62 @@ entity := egdm.NewEntity()
 err := mapper.MapItemToEntity(item, entity)
 if err != nil {
     t.Error(err)
+}
+```
+
+## The Encoder
+
+The encoder is used to encode or decode incoming or outgoing data between UDA and the format used in the source we read from or the sink we write to. Example CSV-files, parquet-files or fixed-length-files. The encoder uses the `sourceConfig` JSON object to determine how to encode or decode. 
+
+Example of different `sourceConfig` with descriptions below
+
+### FlatFile-config
+
+```json
+"sourceConfig":{
+    "encoding":"flatfile",
+    "fields":[
+        {
+            "name":"id",
+            "length":10,
+            "ignore": false
+        },
+        {
+            "name":"foo",
+            "length":3,
+            "ignore": false
+        },
+        {
+            "name": "bar",
+            "length":4,
+            "ignore":false
+        }
+
+    ],
+    "indexFrom":2
+}
+```
+
+### CSV-config
+
+```json
+"sourceConfig":{
+    "encoding":"csv",
+    "columns":[
+        "id",
+        "foo",
+        "bar"
+    ],
+    "columnSeparator":",",
+    "hasHeader": true,
+    "validateFields":false
+
+}
+```
+### JSON-config
+
+```json
+"sourceConfig":{
+    "encoding":"json",
 }
 ```
