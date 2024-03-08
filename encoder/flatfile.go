@@ -21,69 +21,59 @@ func (c *FlatFileItemFactory) NewItem() common_datalayer.Item {
 }
 
 type FlatFileItemWriter struct {
-	writer     io.WriteCloser
-	batchInfo  *common_datalayer.BatchInfo
-	fields     []FlatFileField
-	fieldOrder []string
-}
-type SourceConfig struct {
-	Fields     []FlatFileField `json:"fields"`
-	FieldOrder []string        `json:"fieldOrder"`
+	writer    io.WriteCloser
+	batchInfo *common_datalayer.BatchInfo
+	fields    []FlatFileField
 }
 
 // use position of field in the list to order fieldOrder
 type FlatFileField struct {
 	Name   string `json:"name"`
 	Length int    `json:"length"`
+	Ignore bool   `json:"ignore"`
 }
 
 func NewFlatFileItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*FlatFileItemWriter, error) {
 	writer := &FlatFileItemWriter{writer: data, batchInfo: batchInfo}
 	// do this in function or here?
-	itemWriter, err2 := NewFlatFileConfig(sourceConfig, writer)
+	itemWriter, err2 := NewFlatFileWriteConfig(sourceConfig["fields"].([]map[string]interface{}), writer)
 	if err2 != nil {
 		return itemWriter, err2
 	}
-
-	//fields NewFlatFileField()
-	/*for k, v := range fields {
-		field := v.(map[string]interface{})
-		substring := field["substring"].([]interface{})
-		sub := make([][]int, 0)
-		for _, s := range substring {
-			sub = append(sub, s.([]int))
-		}
-		fields[k] = FlatFileField{
-			Name:   field["name"].(string),
-			Length: field["length"].(int),
-			//Dont talk about data type in the encoding/decoding. Lift it up to the mapper level
-		}
-	}*/
-
 	return writer, nil
 }
 
-func NewFlatFileConfig(sourceConfig map[string]any, writer *FlatFileItemWriter) (*FlatFileItemWriter, error) {
-	var config SourceConfig
-	jsonData, err := json.Marshal(sourceConfig)
+func NewFlatFileWriteConfig(fields []map[string]interface{}, writer *FlatFileItemWriter) (*FlatFileItemWriter, error) {
+	var config []FlatFileField
+	jsonData, err := json.Marshal(fields)
 	err = json.Unmarshal(jsonData, &config)
 	if err != nil {
 		fmt.Println("Error:", err)
 		return nil, err
 	}
-	if config.Fields == nil {
+	if config == nil {
 		return nil, fmt.Errorf("missing field config for flat file")
 	} else {
-		writer.fields = config.Fields
-	}
-	if config.FieldOrder == nil {
-		return nil, fmt.Errorf("missing fieldOrder config for flat file write operation")
-	} else {
-		writer.fieldOrder = config.FieldOrder
+		writer.fields = config
 	}
 	return nil, nil
 }
 
+func NewFlatFileReadConfig(fields []map[string]interface{}, reader *FlatFileItemIterator) (*FlatFileItemIterator, error) {
+	var config []FlatFileField
+	jsonData, err := json.Marshal(fields)
+	err = json.Unmarshal(jsonData, &config)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return nil, err
+	}
+	if config == nil {
+		return nil, fmt.Errorf("missing field config for flat file")
+	} else {
+		reader.fields = config
+	}
+	return nil, nil
+}
 func appendSpaces(value string, amount int) string {
 	for i := 0; i < amount; i++ {
 		value += " "
@@ -109,12 +99,12 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 	var preppedValue string
 	var fieldValue interface{}
 	fieldsWithData := 0
-	for i, fieldName := range c.fieldOrder {
+	for i, field := range c.fields {
 
-		if _, ok := row[fieldName]; ok {
+		if _, ok := row[field.Name]; ok {
 
 			fieldConfig := c.fields[i]
-			fieldValue = row[fieldName]
+			fieldValue = row[field.Name]
 			fieldSize := fieldConfig.Length
 			if fieldValue == nil {
 				//	Need to add spaces according to field length config
@@ -154,92 +144,55 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 }
 
 type FlatFileItemIterator struct {
-	data       io.ReadCloser
-	reader     io.ReadCloser
-	scanner    *bufio.Scanner
-	fields     map[string]FlatFileField
-	fieldOrder []string
+	reader    io.ReadCloser
+	scanner   *bufio.Scanner
+	fields    []FlatFileField
+	indexFrom int
 }
 
 func NewFlatFileItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*FlatFileItemIterator, error) {
-	// TODO: fix me
-	reader := &FlatFileItemIterator{data: data, reader: data}
-	fieldNames, ok := sourceConfig["fields"].(interface{})
-	if ok {
-		reader.fields = fieldNames.(map[string]FlatFileField)
+	scanner := bufio.NewScanner(data)
+	var indexFrom = 0
+	if sourceConfig["indexFrom"] != nil {
+		indexFrom = sourceConfig["indexFrom"].(int)
 	}
-	if fieldNames == nil {
-		return nil, fmt.Errorf("missing field config for flat file")
+	reader := &FlatFileItemIterator{reader: data, scanner: scanner, indexFrom: indexFrom}
+	itemReader, err2 := NewFlatFileReadConfig(sourceConfig["fields"].([]map[string]interface{}), reader)
+	if err2 != nil {
+		return itemReader, err2
 	}
-	fieldOrder, ok := sourceConfig["fieldOrder"].([]string)
-	if ok {
-		reader.fieldOrder = fieldOrder
-	}
+
 	return reader, nil
 }
 
 func (c *FlatFileItemIterator) Close() error {
-	return c.data.Close()
+	return c.reader.Close()
 }
 
-/*
-	func (c *FlatFileItemIterator) Read(p []byte) (common_datalayer.Item, error) {
-		// TODO: fix me
-		buf := make([]byte, 0, len(p))
-		c.scanner = bufio.NewScanner(c.reader)
+func (c *FlatFileItemIterator) Read() (common_datalayer.Item, error) {
+	var entityProps = make(map[string]interface{})
+	for c.scanner.Scan() {
+		line := c.scanner.Text()
 
-		// append one entity per line, comma separated
-		for c.scanner.Scan() {
-
-			line := c.scanner.Text()
-			//d.logger.Debugf("Got line : '%s'", line)
-			d.ParseLine(line, d.backend.FlatFileConfig)
-			if err != nil {
-				d.logger.Errorf("Failed to parse line: '%s'", line)
-				if d.backend.FlatFileConfig.ContinueOnParseError {
-					continue
-				} else {
-					return
-				}
-			}
-
-			var entityBytes []byte
-			entityBytes, err = toEntityBytes(entityProps, d.backend)
-			if err != nil {
-				return
-			}
-			buf = append(buf, append([]byte(","), entityBytes...)...)
-			if n, err, done = d.flush(p, buf); done {
-				return
+		var step = 0
+		if c.indexFrom != 0 {
+			step = c.indexFrom
+		}
+		for _, field := range c.fields {
+			if field.Ignore {
+				step += field.Length
+				continue
+			} else {
+				entityProps[field.Name] = strings.TrimSpace(line[step : step+field.Length])
+				step += field.Length
 			}
 		}
-		var token string
-		if d.fullSync {
-			token = ""
-		} else {
-			token = d.since
-		}
-		// Add continuation token
-		entity := map[string]interface{}{
-			"id":    "@continuation",
-			"token": token,
-		}
-		sinceBytes, err := json.Marshal(entity)
-		buf = append(buf, append([]byte(","), sinceBytes...)...)
-
-		// close json array
-		if !d.closed {
-			buf = append(buf, []byte("]")...)
-			d.closed = true
-			if n, err, done = d.flush(p, buf); done {
-				return
-			}
-		}
-		n = copy(p, buf)
-		return n, io.EOF
 		return &FlatFileItem{data: entityProps}, nil
 	}
-*/
+
+	return nil, nil
+}
+
 type FlatFileItem struct {
 	data map[string]any
 }
