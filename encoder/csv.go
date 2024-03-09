@@ -26,7 +26,7 @@ type CSVItemWriter struct {
 	columns          []string
 	hasHeader        bool
 	separator        string
-	encoding         string
+	fileEncoding     string
 	validateFields   bool
 	firstItemWritten bool
 }
@@ -42,7 +42,7 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 	if ok {
 		writer.columns = columnNames.([]string)
 	}
-	columnSeparator, ok := sourceConfig["columnSeparator"]
+	columnSeparator, ok := sourceConfig["column_separator"]
 	if ok {
 		var err error
 		writer.separator = columnSeparator.(string)
@@ -52,15 +52,15 @@ func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInf
 		}
 	}
 
-	encoding, ok := sourceConfig["encoding"]
+	encoding, ok := sourceConfig["file_encoding"]
 	if ok {
-		writer.encoding = encoding.(string)
+		writer.fileEncoding = encoding.(string)
 	}
-	validateFields, ok := sourceConfig["validateFields"]
+	validateFields, ok := sourceConfig["validate_fields"]
 	if ok {
 		writer.validateFields = validateFields.(bool)
 	}
-	hasHeader, ok := sourceConfig["hasHeader"]
+	hasHeader, ok := sourceConfig["has_header"]
 	// if no hasHeader still want to write data based on columns
 
 	if ok {
@@ -148,7 +148,7 @@ type CSVItemIterator struct {
 	hasHeader      bool
 	columns        []string
 	separator      string
-	encoding       string
+	fileEncoding   string
 	ignoreColumns  []string
 }
 
@@ -156,7 +156,7 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 	dec := csv.NewReader(data)
 	reader := &CSVItemIterator{data: data, decoder: dec}
 
-	columnSeparator, ok := sourceConfig["columnSeparator"]
+	columnSeparator, ok := sourceConfig["column_separator"]
 	if ok {
 		// only working with characters for now, tabs doesn't work
 		//TODO: add support for tabs
@@ -167,19 +167,19 @@ func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVIt
 			return nil, err
 		}
 	}
-	encoding, ok := sourceConfig["encoding"]
+	encoding, ok := sourceConfig["file_encoding"]
 	if ok {
-		reader.encoding = encoding.(string)
+		reader.fileEncoding = encoding.(string)
 	}
 	columnNames, ok := sourceConfig["columns"]
 	if ok {
 		reader.columns = columnNames.([]string)
 	}
-	ignoreColumns, ok := sourceConfig["ignoreColumns"]
+	ignoreColumns, ok := sourceConfig["ignore_columns"]
 	if ok {
 		reader.ignoreColumns = ignoreColumns.([]string)
 	}
-	validateFields, ok := sourceConfig["validateFields"]
+	validateFields, ok := sourceConfig["validate_fields"]
 	if ok {
 		if !validateFields.(bool) {
 			reader.decoder.FieldsPerRecord = -1
@@ -209,9 +209,6 @@ func (c *CSVItemIterator) Close() error {
 
 func (c *CSVItemIterator) Read() (common_datalayer.Item, error) {
 	record, err := c.decoder.Read()
-	// care about data types here? look at sourceConfig for that if needed the config might be extended as:
-	// columns: [{name: "name", type: "string"}, {name: "age", type: "int"}]
-	// this means a change to how we are reading out columns in NewCSVItemIterator and NewCSVItemWriter
 
 	if err != nil {
 		if err == io.EOF {
