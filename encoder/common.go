@@ -2,7 +2,7 @@ package encoder
 
 import (
 	"errors"
-	common_datalayer "github.com/mimiro-io/common-datalayer"
+	cdl "github.com/mimiro-io/common-datalayer"
 	"io"
 )
 
@@ -23,7 +23,7 @@ func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemItera
 	return nil, nil
 }
 
-func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (ItemWriter, error) {
+func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (ItemWriter, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
@@ -58,15 +58,15 @@ func NewItemFactory(sourceConfig map[string]any) (ItemFactory, error) {
 }
 
 type ItemFactory interface {
-	NewItem() common_datalayer.Item
+	NewItem() cdl.Item
 }
 
 type ItemIterator interface {
-	Read() (common_datalayer.Item, error)
+	Read() (cdl.Item, error)
 	Close() error
 }
 
 type ItemWriter interface {
-	Write(item common_datalayer.Item) error
+	Write(item cdl.Item) error
 	Close() error
 }
