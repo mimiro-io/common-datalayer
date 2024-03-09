@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-//comment because it's unfinished for now.
-
 func TestCSVRead(t *testing.T) {
 	// open file
 	filename := "./testdata/data.csv"
@@ -16,10 +14,10 @@ func TestCSVRead(t *testing.T) {
 		t.Error(err)
 	}
 	sourceConfig := make(map[string]any)
-	sourceConfig["columnSeparator"] = ","
+	sourceConfig["column_separator"] = ","
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
-	sourceConfig["hasHeader"] = true
+	sourceConfig["has_header"] = true
 	reader, err := NewCSVItemIterator(sourceConfig, file)
 
 	item, err := reader.Read()
@@ -87,10 +85,10 @@ func TestCSVWrite(t *testing.T) {
 
 	itemFactory := NewCSVItemFactory()
 	sourceConfig := make(map[string]any)
-	sourceConfig["columnSeparator"] = ","
+	sourceConfig["column_separator"] = ","
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
-	sourceConfig["hasHeader"] = true
+	sourceConfig["has_header"] = true
 	batchInfo := &common_datalayer.BatchInfo{SyncId: "1", IsLastBatch: false, IsStartBatch: true}
 	writer, err := NewCSVItemWriter(sourceConfig, file, batchInfo)
 	if err != nil {
@@ -183,10 +181,10 @@ func TestTABDelimiter(t *testing.T) {
 		t.Error(err)
 	}
 	sourceConfig := make(map[string]any)
-	sourceConfig["columnSeparator"] = "\t"
+	sourceConfig["column_separator"] = "\t"
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
-	sourceConfig["hasHeader"] = true
+	sourceConfig["has_header"] = true
 	reader, err := NewCSVItemIterator(sourceConfig, file)
 
 	item, err := reader.Read()
@@ -226,10 +224,10 @@ func TestTABDelimiterWriting(t *testing.T) {
 	defer os.Remove(filename)
 
 	sourceConfig := make(map[string]any)
-	sourceConfig["columnSeparator"] = "\t"
+	sourceConfig["column_separator"] = "\t"
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
-	sourceConfig["hasHeader"] = true
+	sourceConfig["has_header"] = true
 
 	// create item and writer, then write the item
 	itemFactory := NewCSVItemFactory()

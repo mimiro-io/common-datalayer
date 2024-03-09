@@ -138,19 +138,19 @@ The `source_config` is a JSON Object and used to provide information about the d
 
 ##### example source_config for csv-encoded data
 
-| JSON Field              | Description                                                     |
-| ----------------------- | --------------------------------------------------------------- |
-| encoding                | Specifies what type of encoding the incoming data has           |
-| columns                 | Names and orders the different columns of the data              |
-| hasHeader               | Field decides if first row should be header or entitiy.         |
-| columnSeparator         | Define what character is used to separete the data in columns   |
+| JSON Field       | Description                                                     |
+|------------------| --------------------------------------------------------------- |
+| encoding         | Specifies what type of encoding the incoming data has           |
+| columns          | Names and orders the different columns of the data              |
+| has_header       | Field decides if first row should be header or entitiy.         |
+| column_separator | Define what character is used to separete the data in columns   |
 
 ```json
-"sourceConfig":{
+"sourceConfig" : {
     "encoding": "csv",
     "columns" : ["id", "name", "age", "worksfor"],
-    "hasHeader": true, 
-    "columnSeparator": ","
+    "has_header": true, 
+    "column_separator": ","
 }
 ```
 
