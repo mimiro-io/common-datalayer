@@ -31,6 +31,7 @@ type FlatFileField struct {
 	Name   string `json:"name"`
 	Length int    `json:"length"`
 	Ignore bool   `json:"ignore"`
+	Type   string `json:"type"`
 }
 
 func NewFlatFileItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*FlatFileItemWriter, error) {
@@ -110,11 +111,13 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 				//	Need to add spaces according to field length config
 				preppedValue = appendSpaces(preppedValue, fieldSize)
 			} else {
-				//	cast to string, then cut or append spaces to value according to substring config
+				//	cast to string, then cut or append spaces to value according to config
 				var valueLength int
 				switch fieldValue.(type) {
 				case float64:
 					fieldValue = fmt.Sprintf("%f", fieldValue)
+					fieldValue = strings.Replace(fieldValue.(string), ".", "", -1)
+					valueLength = len(fieldValue.(string))
 				default:
 					fieldValue = fmt.Sprintf("%v", fieldValue)
 				}
@@ -122,7 +125,11 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 				// do this in mapper?
 				if valueLength < fieldSize {
 					diff := fieldSize - valueLength
-					preppedValue = appendSpaces(fieldValue.(string), diff)
+					if fieldConfig.Type == "int" {
+						preppedValue = prependZeros(fieldValue.(string), diff)
+					} else {
+						preppedValue = appendSpaces(fieldValue.(string), diff)
+					}
 				} else if valueLength > fieldSize {
 					preppedValue = fieldValue.(string)[:fieldSize]
 				} else {
