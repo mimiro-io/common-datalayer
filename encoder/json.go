@@ -3,7 +3,7 @@ package encoder
 import (
 	"encoding/json"
 	"errors"
-	common_datalayer "github.com/mimiro-io/common-datalayer"
+	cdl "github.com/mimiro-io/common-datalayer"
 	"io"
 )
 
@@ -13,7 +13,7 @@ func NewJsonItemFactory() ItemFactory {
 
 type JsonItemFactory struct{}
 
-func (j *JsonItemFactory) NewItem() common_datalayer.Item {
+func (j *JsonItemFactory) NewItem() cdl.Item {
 	return &JsonItem{data: make(map[string]any)}
 }
 
@@ -21,10 +21,10 @@ type JsonItemWriter struct {
 	data             io.WriteCloser
 	encoder          *json.Encoder
 	firstItemWritten bool
-	batchInfo        *common_datalayer.BatchInfo
+	batchInfo        *cdl.BatchInfo
 }
 
-func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*JsonItemWriter, error) {
+func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*JsonItemWriter, error) {
 	enc := json.NewEncoder(data)
 	writer := &JsonItemWriter{data: data, encoder: enc, batchInfo: batchInfo}
 
@@ -64,7 +64,7 @@ func (j *JsonItemWriter) Close() error {
 	return j.data.Close()
 }
 
-func (j *JsonItemWriter) Write(item common_datalayer.Item) error {
+func (j *JsonItemWriter) Write(item cdl.Item) error {
 	// if first item written, write a comma
 	if j.firstItemWritten {
 		_, err := j.data.Write([]byte(","))
@@ -109,7 +109,7 @@ func (j *JsonItemIterator) Close() error {
 	return j.data.Close()
 }
 
-func (j *JsonItemIterator) Read() (common_datalayer.Item, error) {
+func (j *JsonItemIterator) Read() (cdl.Item, error) {
 	if j.decoder.More() {
 		var obj map[string]interface{}
 		err := j.decoder.Decode(&obj)

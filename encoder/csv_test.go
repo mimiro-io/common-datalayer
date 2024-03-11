@@ -1,7 +1,7 @@
 package encoder
 
 import (
-	common_datalayer "github.com/mimiro-io/common-datalayer"
+	cdl "github.com/mimiro-io/common-datalayer"
 	"os"
 	"testing"
 )
@@ -14,7 +14,7 @@ func TestCSVRead(t *testing.T) {
 		t.Error(err)
 	}
 	sourceConfig := make(map[string]any)
-	sourceConfig["column_separator"] = ","
+	sourceConfig["separator"] = ","
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
@@ -85,11 +85,11 @@ func TestCSVWrite(t *testing.T) {
 
 	itemFactory := NewCSVItemFactory()
 	sourceConfig := make(map[string]any)
-	sourceConfig["column_separator"] = ","
+	sourceConfig["separator"] = ","
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
-	batchInfo := &common_datalayer.BatchInfo{SyncId: "1", IsLastBatch: false, IsStartBatch: true}
+	batchInfo := &cdl.BatchInfo{SyncId: "1", IsLastBatch: false, IsStartBatch: true}
 	writer, err := NewCSVItemWriter(sourceConfig, file, batchInfo)
 	if err != nil {
 		t.Error(err)
@@ -181,7 +181,7 @@ func TestTABDelimiter(t *testing.T) {
 		t.Error(err)
 	}
 	sourceConfig := make(map[string]any)
-	sourceConfig["column_separator"] = "\t"
+	sourceConfig["separator"] = "\t"
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
@@ -224,7 +224,7 @@ func TestTABDelimiterWriting(t *testing.T) {
 	defer os.Remove(filename)
 
 	sourceConfig := make(map[string]any)
-	sourceConfig["column_separator"] = "\t"
+	sourceConfig["separator"] = "\t"
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true

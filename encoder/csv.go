@@ -2,8 +2,9 @@ package encoder
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"errors"
-	common_datalayer "github.com/mimiro-io/common-datalayer"
+	cdl "github.com/mimiro-io/common-datalayer"
 	"io"
 	"slices"
 	"strconv"
@@ -15,69 +16,71 @@ func NewCSVItemFactory() ItemFactory {
 
 type CSVItemFactory struct{}
 
-func (c *CSVItemFactory) NewItem() common_datalayer.Item {
+func (c *CSVItemFactory) NewItem() cdl.Item {
 	return &CSVItem{data: make(map[string]any)}
+}
+
+type CSVEncoderConfig struct {
+	Columns        []string `json:"columns"`
+	HasHeader      bool     `json:"has_header"`
+	Separator      string   `json:"separator"`
+	FileEncoding   string   `json:"file_encoding"`
+	ValidateFields bool     `json:"validate_fields"`
+	IgnoreColumns  []string `json:"ignore_columns"`
+}
+
+func NewCSVEncoderConfig(sourceConfig map[string]any) (*CSVEncoderConfig, error) {
+	// json it first
+	data, err := json.Marshal(sourceConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	config := &CSVEncoderConfig{}
+	err = json.Unmarshal(data, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 type CSVItemWriter struct {
 	data             io.WriteCloser
-	batchInfo        *common_datalayer.BatchInfo
+	batchInfo        *cdl.BatchInfo
 	writer           *csv.Writer
-	columns          []string
-	hasHeader        bool
-	separator        string
-	fileEncoding     string
-	validateFields   bool
 	firstItemWritten bool
+	config           *CSVEncoderConfig
 }
 
-func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*CSVItemWriter, error) {
-	enc := csv.NewWriter(data)
-	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo}
-
-	// this can be implicitly creating the order of the columns
-	// OR we add the order field to the config to specify the order of the columns
-	// trying implicit for now, add to docs.
-	columnNames, ok := sourceConfig["columns"]
-	if ok {
-		writer.columns = columnNames.([]string)
+func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*CSVItemWriter, error) {
+	config, err := NewCSVEncoderConfig(sourceConfig)
+	if err != nil {
+		return nil, err
 	}
-	columnSeparator, ok := sourceConfig["column_separator"]
-	if ok {
-		var err error
-		writer.separator = columnSeparator.(string)
-		writer.writer.Comma, err = stringToRune(columnSeparator.(string))
+
+	enc := csv.NewWriter(data)
+	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo, config: config}
+
+	if config.Separator != "" {
+		writer.writer.Comma, err = stringToRune(config.Separator)
 		if err != nil {
 			return nil, errors.New("input string does not match allowed characters")
 		}
 	}
 
-	encoding, ok := sourceConfig["file_encoding"]
-	if ok {
-		writer.fileEncoding = encoding.(string)
-	}
-	validateFields, ok := sourceConfig["validate_fields"]
-	if ok {
-		writer.validateFields = validateFields.(bool)
-	}
-	hasHeader, ok := sourceConfig["has_header"]
-	// if no hasHeader still want to write data based on columns
-
-	if ok {
-		writer.hasHeader = hasHeader.(bool)
-		if writer.hasHeader {
-			if batchInfo != nil {
-				if batchInfo.IsStartBatch {
-					err := writer.writer.Write(writer.columns) // write the header for the csv-file
-					if err != nil {
-						return nil, err
-					}
-				}
-			} else {
-				err := writer.writer.Write(writer.columns) // write the header for the csv-file
+	if config.HasHeader {
+		if batchInfo != nil {
+			if batchInfo.IsStartBatch {
+				err := writer.writer.Write(config.Columns)
 				if err != nil {
 					return nil, err
 				}
+			}
+		} else {
+			err := writer.writer.Write(config.Columns)
+			if err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -90,12 +93,12 @@ func (c *CSVItemWriter) Close() error {
 	return c.data.Close()
 }
 
-func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
+func (c *CSVItemWriter) Write(item cdl.Item) error {
 	written := 0
 	var r []string
 
 	row := item.NativeItem().(map[string]any)
-	for _, h := range c.columns {
+	for _, h := range c.config.Columns {
 		if _, ok := row[h]; ok {
 			switch v := row[h].(type) {
 			case float64:
@@ -142,62 +145,42 @@ func (c *CSVItemWriter) Write(item common_datalayer.Item) error {
 }
 
 type CSVItemIterator struct {
-	data           io.ReadCloser
-	decoder        *csv.Reader
-	validateFields bool
-	hasHeader      bool
-	columns        []string
-	separator      string
-	fileEncoding   string
-	ignoreColumns  []string
+	data    io.ReadCloser
+	decoder *csv.Reader
+	config  *CSVEncoderConfig
 }
 
 func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVItemIterator, error) {
-	dec := csv.NewReader(data)
-	reader := &CSVItemIterator{data: data, decoder: dec}
+	config, err := NewCSVEncoderConfig(sourceConfig)
+	if err != nil {
+		return nil, err
+	}
 
-	columnSeparator, ok := sourceConfig["column_separator"]
-	if ok {
-		// only working with characters for now, tabs doesn't work
-		//TODO: add support for tabs
-		//reader.decoder.Comma = rune(columnSeparator.(string)[0])
+	dec := csv.NewReader(data)
+	reader := &CSVItemIterator{data: data, decoder: dec, config: config}
+
+	if config.Separator != "" {
 		err := errors.New("input string does not match allowed characters")
-		reader.decoder.Comma, err = stringToRune(columnSeparator.(string))
+		reader.decoder.Comma, err = stringToRune(config.Separator)
 		if err != nil {
 			return nil, err
 		}
 	}
-	encoding, ok := sourceConfig["file_encoding"]
-	if ok {
-		reader.fileEncoding = encoding.(string)
+
+	reader.decoder.FieldsPerRecord = -1
+	if config.ValidateFields {
+		reader.decoder.FieldsPerRecord = len(reader.config.Columns)
 	}
-	columnNames, ok := sourceConfig["columns"]
-	if ok {
-		reader.columns = columnNames.([]string)
-	}
-	ignoreColumns, ok := sourceConfig["ignore_columns"]
-	if ok {
-		reader.ignoreColumns = ignoreColumns.([]string)
-	}
-	validateFields, ok := sourceConfig["validate_fields"]
-	if ok {
-		if !validateFields.(bool) {
-			reader.decoder.FieldsPerRecord = -1
-		} else {
-			//checks the first field and sees how many columns there is, uses that as validation going forward.
-			//another option is to explicity set the number of columns in the config
-			reader.decoder.FieldsPerRecord = len(reader.columns)
+
+	if reader.config.HasHeader {
+		header, err := reader.decoder.Read()
+		if err != nil {
+			return nil, err
 		}
-	} else {
-		// default is not to validate fields
-		reader.decoder.FieldsPerRecord = -1
-	}
-	header, err := reader.decoder.Read()
-	if err != nil {
-		return nil, err
-	}
-	if len(header) > len(reader.columns) {
-		return nil, errors.New("header row does not match columns in source config")
+
+		if len(header) > len(reader.config.Columns) {
+			return nil, errors.New("header row does not match columns in source config")
+		}
 	}
 
 	return reader, nil
@@ -207,7 +190,7 @@ func (c *CSVItemIterator) Close() error {
 	return c.data.Close()
 }
 
-func (c *CSVItemIterator) Read() (common_datalayer.Item, error) {
+func (c *CSVItemIterator) Read() (cdl.Item, error) {
 	record, err := c.decoder.Read()
 
 	if err != nil {
@@ -217,8 +200,8 @@ func (c *CSVItemIterator) Read() (common_datalayer.Item, error) {
 		return nil, err
 	}
 	var entityProps = make(map[string]interface{})
-	for j, key := range c.columns {
-		if slices.Contains(c.ignoreColumns, key) {
+	for j, key := range c.config.Columns {
+		if slices.Contains(c.config.IgnoreColumns, key) {
 			continue
 		}
 		entityProps[key] = record[j]
