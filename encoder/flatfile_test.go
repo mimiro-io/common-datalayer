@@ -71,10 +71,9 @@ func TestFlatFileReadOffset(t *testing.T) {
 		t.Error(err)
 	}
 
-	fields := []map[string]interface{}{{"name": "id", "length": 2, "ignore": false}, {"name": "firstname", "length": 9, "ignore": false}, {"name": "surname", "length": 6, "ignore": false}, {"name": "age", "length": 3, "ignore": false}, {"name": "worksfor", "length": 8, "ignore": false}, {"name": "ignore", "length": 10, "ignore": true}}
+	fields := []map[string]interface{}{{"name": "pad", "length": 2, "ignore": true}, {"name": "id", "length": 2, "ignore": false}, {"name": "firstname", "length": 9, "ignore": false}, {"name": "surname", "length": 6, "ignore": false}, {"name": "age", "length": 3, "ignore": false}, {"name": "worksfor", "length": 8, "ignore": false}, {"name": "ignore", "length": 10, "ignore": true}}
 	sourceConfig := make(map[string]any)
 	sourceConfig["fields"] = fields
-	sourceConfig["indexFrom"] = 2
 	reader, err := NewFlatFileItemIterator(sourceConfig, file)
 
 	item, err := reader.Read()

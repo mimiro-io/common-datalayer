@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	common_datalayer "github.com/mimiro-io/common-datalayer"
 	"io"
@@ -23,57 +24,55 @@ func (c *FlatFileItemFactory) NewItem() common_datalayer.Item {
 type FlatFileItemWriter struct {
 	writer    io.WriteCloser
 	batchInfo *common_datalayer.BatchInfo
-	fields    []FlatFileField
+	config    *FlatFileConfig
+}
+
+type FlatFileConfig struct {
+	Fields []FlatFileField `json:"fields"`
 }
 
 // use position of field in the list to order fieldOrder
 type FlatFileField struct {
-	Name   string `json:"name"`
-	Length int    `json:"length"`
-	Ignore bool   `json:"ignore"`
-	Type   string `json:"type"`
+	Name      string `json:"name"`
+	Length    int    `json:"length"`
+	Ignore    bool   `json:"ignore"`
+	NumberPad bool   `json:"number_pad"`
 }
 
 func NewFlatFileItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *common_datalayer.BatchInfo) (*FlatFileItemWriter, error) {
 	writer := &FlatFileItemWriter{writer: data, batchInfo: batchInfo}
-	// do this in function or here?
-	itemWriter, err2 := NewFlatFileWriteConfig(sourceConfig["fields"].([]map[string]interface{}), writer)
-	if err2 != nil {
-		return itemWriter, err2
+	config, err := NewFlatFileWriteConfig(sourceConfig)
+	if err != nil {
+		return nil, err
 	}
+	writer.config = config
 	return writer, nil
 }
 
-func NewFlatFileWriteConfig(fields []map[string]interface{}, writer *FlatFileItemWriter) (*FlatFileItemWriter, error) {
-	var config []FlatFileField
-	jsonData, err := json.Marshal(fields)
+func NewFlatFileWriteConfig(sourceConfig map[string]any) (*FlatFileConfig, error) {
+	var config FlatFileConfig
+	jsonData, err := json.Marshal(sourceConfig)
 	err = json.Unmarshal(jsonData, &config)
 	if err != nil {
-		fmt.Println("Error:", err)
 		return nil, err
 	}
-	if config == nil {
-		return nil, fmt.Errorf("missing field config for flat file")
-	} else {
-		writer.fields = config
+	if config.Fields == nil {
+		return nil, errors.New("missing field config for flat file")
 	}
-	return nil, nil
+	return &config, nil
 }
 
-func NewFlatFileReadConfig(fields []map[string]interface{}, reader *FlatFileItemIterator) (*FlatFileItemIterator, error) {
-	var config []FlatFileField
-	jsonData, err := json.Marshal(fields)
+func NewFlatFileReadConfig(sourceConfig map[string]any) (*FlatFileConfig, error) {
+	var config FlatFileConfig
+	jsonData, err := json.Marshal(sourceConfig)
 	err = json.Unmarshal(jsonData, &config)
 	if err != nil {
-		fmt.Println("Error:", err)
 		return nil, err
 	}
-	if config == nil {
-		return nil, fmt.Errorf("missing field config for flat file")
-	} else {
-		reader.fields = config
+	if config.Fields == nil {
+		return nil, errors.New("missing field config for flat file")
 	}
-	return nil, nil
+	return &config, nil
 }
 func appendSpaces(value string, amount int) string {
 	for i := 0; i < amount; i++ {
@@ -100,11 +99,10 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 	var preppedValue string
 	var fieldValue interface{}
 	fieldsWithData := 0
-	for i, field := range c.fields {
+	for i, field := range c.config.Fields {
 
 		if _, ok := row[field.Name]; ok {
-
-			fieldConfig := c.fields[i]
+			fieldConfig := c.config.Fields[i]
 			fieldValue = row[field.Name]
 			fieldSize := fieldConfig.Length
 			if fieldValue == nil {
@@ -122,10 +120,9 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 					fieldValue = fmt.Sprintf("%v", fieldValue)
 				}
 				valueLength = len(fieldValue.(string))
-				// do this in mapper?
 				if valueLength < fieldSize {
 					diff := fieldSize - valueLength
-					if fieldConfig.Type == "int" {
+					if fieldConfig.NumberPad {
 						preppedValue = prependZeros(fieldValue.(string), diff)
 					} else {
 						preppedValue = appendSpaces(fieldValue.(string), diff)
@@ -151,24 +148,19 @@ func (c *FlatFileItemWriter) Write(item common_datalayer.Item) error {
 }
 
 type FlatFileItemIterator struct {
-	reader    io.ReadCloser
-	scanner   *bufio.Scanner
-	fields    []FlatFileField
-	indexFrom int
+	reader  io.ReadCloser
+	scanner *bufio.Scanner
+	config  *FlatFileConfig
 }
 
 func NewFlatFileItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*FlatFileItemIterator, error) {
 	scanner := bufio.NewScanner(data)
-	var indexFrom = 0
-	if sourceConfig["indexFrom"] != nil {
-		indexFrom = sourceConfig["indexFrom"].(int)
+	reader := &FlatFileItemIterator{reader: data, scanner: scanner}
+	config, err := NewFlatFileReadConfig(sourceConfig)
+	if err != nil {
+		return nil, err
 	}
-	reader := &FlatFileItemIterator{reader: data, scanner: scanner, indexFrom: indexFrom}
-	itemReader, err2 := NewFlatFileReadConfig(sourceConfig["fields"].([]map[string]interface{}), reader)
-	if err2 != nil {
-		return itemReader, err2
-	}
-
+	reader.config = config
 	return reader, nil
 }
 
@@ -182,10 +174,7 @@ func (c *FlatFileItemIterator) Read() (common_datalayer.Item, error) {
 		line := c.scanner.Text()
 
 		var step = 0
-		if c.indexFrom != 0 {
-			step = c.indexFrom
-		}
-		for _, field := range c.fields {
+		for _, field := range c.config.Fields {
 			if field.Ignore {
 				step += field.Length
 				continue
