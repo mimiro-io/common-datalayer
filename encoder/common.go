@@ -20,6 +20,10 @@ func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemItera
 		return NewCSVItemIterator(sourceConfig, data)
 	}
 
+	if encoding == "parquet" {
+		return NewParquetItemIterator(sourceConfig, data)
+	}
+
 	return nil, nil
 }
 
@@ -34,6 +38,9 @@ func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *
 	}
 	if encoding == "csv" {
 		return NewCSVItemWriter(sourceConfig, data, batchInfo)
+	}
+	if encoding == "parquet" {
+		return NewParquetItemWriter(sourceConfig, data, batchInfo)
 	}
 
 	return nil, nil
