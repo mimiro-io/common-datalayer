@@ -61,12 +61,7 @@ func NewParquetDecoderConfig(sourceConfig map[string]any) (*ParquetEncoderConfig
 	if err != nil {
 		return nil, err
 	}
-	var flushThreshold int64
-	if sourceConfig["flush_threshold"] == 0 {
-		sourceConfig["flush_threshold"] = 1 * 1024 * 1024
-	} else {
-		flushThreshold = sourceConfig["flush_threshold"].(int64)
-	}
+
 	data, err := json.Marshal(sourceConfig)
 	if err != nil {
 		return nil, err
@@ -76,8 +71,10 @@ func NewParquetDecoderConfig(sourceConfig map[string]any) (*ParquetEncoderConfig
 	if err != nil {
 		return nil, err
 	}
+	if config.FlushThreshold == 0 {
+		config.FlushThreshold = 1 * 1024 * 1024
+	}
 	// parse json to parquet schema string and pass that to schema-parser
-	config.FlushThreshold = flushThreshold
 	return config, nil
 }
 
@@ -127,19 +124,13 @@ func (c *ParquetItemWriter) Write(item cdl.Item) error {
 	if err != nil {
 		return err
 	}
-	// enc/dec should not have a concept of flush?
 	written := c.writer.CurrentRowGroupSize()
-	// log something here?
-	fmt.Sprintf("Written %v parquet bytes to underlying writer. written in total: %v", written, c.writer.CurrentFileSize())
 	if written > c.config.FlushThreshold {
 		err := c.writer.FlushRowGroup()
 		if err != nil {
 			return err
 		}
 	}
-	flushed := written - c.writer.CurrentRowGroupSize()
-	// log something? is it really needed?
-	fmt.Sprintf("Flushed %v parquet bytes to underlying writer. flushed in total: %v", flushed, c.writer.CurrentFileSize())
 	return nil
 }
 func convertType(val interface{}, t *parquet.Type, logicalType *parquet.LogicalType) (interface{}, error) {

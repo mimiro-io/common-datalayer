@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"fmt"
 	cdl "github.com/mimiro-io/common-datalayer"
 	"os"
 	"testing"
@@ -29,7 +28,6 @@ func TestParquetRead(t *testing.T) {
 	if item == nil {
 		t.Error("Expected item")
 	}
-	fmt.Sprint(item.GetValue("name"))
 	if item.GetValue("name") != "John Smith" {
 		t.Error("Expected John Smith")
 	}
