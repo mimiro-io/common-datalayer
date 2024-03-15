@@ -388,6 +388,30 @@ The order of the columns in the array below is the order which the encoder assum
 
 }
 ```
+
+### Parquet-config
+
+The options for the Parquet-config are:
+
+| Field Name        | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| encoding          | What encoding method should be used                 |
+| schema            | defines the schema of the parquet-file to be used   |
+| flush_threshold   | Amount, in bytes, that will be written each pass    |
+| ignore_columns    | which columns to not read from the file             |
+
+
+The schema-parser reads a string looking like the one below. There is work in progress to be able to define the schema in JSON and parse it on demand to the required string.
+
+```json
+"sourceConfig":{
+    "encoding":"parquet",
+    "schema": "message example { required int64 id; optional binary name (STRING); optional int64 age; optional binary worksfor (STRING)}",
+    "flush_threshold":2097152,
+    "ignore_columns": ["irrelevant_field", "secret_field"]
+
+}
+```
 ### JSON-config
 
 ```json

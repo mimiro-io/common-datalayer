@@ -20,6 +20,10 @@ func NewItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.Rea
 		return NewCSVItemIterator(sourceConfig, logger, data)
 	}
 
+	if encoding == "parquet" {
+		return NewParquetItemIterator(sourceConfig, data)
+	}
+
 	return nil, nil
 }
 
@@ -34,6 +38,9 @@ func NewItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.Write
 	}
 	if encoding == "csv" {
 		return NewCSVItemWriter(sourceConfig, logger, data, batchInfo)
+	}
+	if encoding == "parquet" {
+		return NewParquetItemWriter(sourceConfig, data, batchInfo)
 	}
 	if encoding == "flatfile" {
 		return NewFlatFileItemWriter(sourceConfig, data, batchInfo)
