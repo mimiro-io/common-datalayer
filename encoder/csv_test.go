@@ -18,7 +18,9 @@ func TestCSVRead(t *testing.T) {
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
-	reader, err := NewCSVItemIterator(sourceConfig, file)
+
+	logger := cdl.NewLogger("test", "text", "debug")
+	reader, err := NewCSVItemIterator(sourceConfig, logger, file)
 
 	item, err := reader.Read()
 	if err != nil {
@@ -90,7 +92,8 @@ func TestCSVWrite(t *testing.T) {
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
 	batchInfo := &cdl.BatchInfo{SyncId: "1", IsLastBatch: false, IsStartBatch: true}
-	writer, err := NewCSVItemWriter(sourceConfig, file, batchInfo)
+	logger := cdl.NewLogger("test", "text", "debug")
+	writer, err := NewCSVItemWriter(sourceConfig, logger, file, batchInfo)
 	if err != nil {
 		t.Error(err)
 	}
@@ -127,7 +130,7 @@ func TestCSVWrite(t *testing.T) {
 		t.Error(err)
 	}
 
-	reader, err := NewCSVItemIterator(sourceConfig, file)
+	reader, err := NewCSVItemIterator(sourceConfig, logger, file)
 	if err != nil {
 		t.Error(err)
 	}
@@ -185,7 +188,8 @@ func TestTABDelimiter(t *testing.T) {
 	sourceConfig["encoding"] = "csv"
 	sourceConfig["columns"] = []string{"id", "name", "age", "worksfor"}
 	sourceConfig["has_header"] = true
-	reader, err := NewCSVItemIterator(sourceConfig, file)
+	logger := cdl.NewLogger("test", "text", "debug")
+	reader, err := NewCSVItemIterator(sourceConfig, logger, file)
 
 	item, err := reader.Read()
 	if err != nil {
@@ -231,7 +235,8 @@ func TestTABDelimiterWriting(t *testing.T) {
 
 	// create item and writer, then write the item
 	itemFactory := NewCSVItemFactory()
-	writer, err := NewCSVItemWriter(sourceConfig, file, nil)
+	logger := cdl.NewLogger("test", "text", "debug")
+	writer, err := NewCSVItemWriter(sourceConfig, logger, file, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -255,7 +260,7 @@ func TestTABDelimiterWriting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	reader, err := NewCSVItemIterator(sourceConfig, file)
+	reader, err := NewCSVItemIterator(sourceConfig, logger, file)
 
 	item, err = reader.Read()
 	if err != nil {

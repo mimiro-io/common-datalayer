@@ -49,7 +49,7 @@ func (serviceRunner *ServiceRunner) configure() {
 	}
 
 	// initialise logger
-	logger := newLogger(
+	logger := NewLogger(
 		config.LayerServiceConfig.ServiceName,
 		config.LayerServiceConfig.LogFormat,
 		config.LayerServiceConfig.LogLevel,

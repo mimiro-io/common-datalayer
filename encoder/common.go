@@ -6,34 +6,34 @@ import (
 	"io"
 )
 
-func NewItemIterator(sourceConfig map[string]any, data io.ReadCloser) (ItemIterator, error) {
+func NewItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.ReadCloser) (ItemIterator, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
 
 	if encoding == "json" {
-		return NewJsonItemIterator(sourceConfig, data)
+		return NewJsonItemIterator(sourceConfig, logger, data)
 	}
 
 	if encoding == "csv" {
-		return NewCSVItemIterator(sourceConfig, data)
+		return NewCSVItemIterator(sourceConfig, logger, data)
 	}
 
 	return nil, nil
 }
 
-func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (ItemWriter, error) {
+func NewItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (ItemWriter, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
 
 	if encoding == "json" {
-		return NewJsonItemWriter(sourceConfig, data, batchInfo)
+		return NewJsonItemWriter(sourceConfig, logger, data, batchInfo)
 	}
 	if encoding == "csv" {
-		return NewCSVItemWriter(sourceConfig, data, batchInfo)
+		return NewCSVItemWriter(sourceConfig, logger, data, batchInfo)
 	}
 	if encoding == "flatfile" {
 		return NewFlatFileItemWriter(sourceConfig, data, batchInfo)
