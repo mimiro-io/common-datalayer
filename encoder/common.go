@@ -35,6 +35,9 @@ func NewItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *
 	if encoding == "csv" {
 		return NewCSVItemWriter(sourceConfig, data, batchInfo)
 	}
+	if encoding == "flatfile" {
+		return NewFlatFileItemWriter(sourceConfig, data, batchInfo)
+	}
 
 	return nil, nil
 }
@@ -52,6 +55,10 @@ func NewItemFactory(sourceConfig map[string]any) (ItemFactory, error) {
 	if encoding == "csv" {
 		return &CSVItemFactory{}, nil
 
+	}
+
+	if encoding == "flatfile" {
+		return &FlatFileItemFactory{}, nil
 	}
 
 	return nil, nil

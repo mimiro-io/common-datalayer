@@ -13,6 +13,7 @@
       - [incoming_mapping_config](#incomingmappingconfig)
       - [outgoing_mapping_config](#outgoingmappingconfig)
   - [The Mapper](#the-mapper)
+  - [The Encoder](#the-encoder)
   <!--toc:end-->
 
 ## Introduction
@@ -303,5 +304,94 @@ entity := egdm.NewEntity()
 err := mapper.MapItemToEntity(item, entity)
 if err != nil {
     t.Error(err)
+}
+```
+
+## The Encoder
+
+The encoder is used to encode or decode incoming or outgoing data between UDA and the format used in the source we read from or the sink we write to. Example CSV-files, parquet-files or fixed-length-files. The encoder uses the `sourceConfig` JSON object to determine how to encode or decode. 
+
+Example of different `sourceConfig` with descriptions below
+
+### FlatFile-config
+
+The options for the flatfile-fields-config are:
+
+| Field Name        | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| name              | Name of the field/column you are reading            |
+| length            | Character length of the field as an integer         |
+| ignore            | Boolean that determines if the field is ignored     |
+| number_pad        | if field is a number and should be padded with zeros|
+
+The ignore field can also be used to start reading the file from an offset from start. 
+The order of the fields in the array below is the order which the encoder assumes they arrive, it's important that to be aware of.
+
+```json
+"sourceConfig":{
+    "encoding":"flatfile",
+    "fields":[
+        {
+            "name":"id",
+            "length":10,
+            "ignore": false,
+            "number_pad":false
+        },
+        {
+            "name":"foo",
+            "length":3,
+            "ignore": false,
+            "number_pad":false
+        },
+        {
+            "name": "bar",
+            "length":4,
+            "ignore":false,
+            "number_pad":false
+        },
+                {
+            "name": "irrelevant_field",
+            "length":12,
+            "ignore":true,
+            "number_pad":false
+        }
+
+    ]
+}
+```
+
+### CSV-config
+
+The options for the CSV-config are:
+
+| Field Name        | Description                                         |
+| ----------------- | --------------------------------------------------- |
+| encoding          | What encoding method should be used                 |
+| columns           | name and order of columns in the file               |
+| separator         | What character separates the columns in this file   |
+| has_header        | if file has a header                                |
+| validate_fields   | if fields should be validated(could stop reading)   |
+
+The order of the columns in the array below is the order which the encoder assumes they arrive, it's important that to be aware of.
+
+```json
+"sourceConfig":{
+    "encoding":"csv",
+    "columns":[
+        "id",
+        "foo",
+        "bar"
+    ],
+    "separator":",",
+    "has_header": true,
+    "validateFields":false
+
+}
+```
+### JSON-config
+
+```json
+"sourceConfig":{
+    "encoding":"json",
 }
 ```
