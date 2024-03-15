@@ -51,16 +51,17 @@ type CSVItemWriter struct {
 	writer           *csv.Writer
 	firstItemWritten bool
 	config           *CSVEncoderConfig
+	logger           cdl.Logger
 }
 
-func NewCSVItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*CSVItemWriter, error) {
+func NewCSVItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*CSVItemWriter, error) {
 	config, err := NewCSVEncoderConfig(sourceConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	enc := csv.NewWriter(data)
-	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo, config: config}
+	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo, config: config, logger: logger}
 
 	if config.Separator != "" {
 		writer.writer.Comma, err = stringToRune(config.Separator)
@@ -148,16 +149,17 @@ type CSVItemIterator struct {
 	data    io.ReadCloser
 	decoder *csv.Reader
 	config  *CSVEncoderConfig
+	logger  cdl.Logger
 }
 
-func NewCSVItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*CSVItemIterator, error) {
+func NewCSVItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.ReadCloser) (*CSVItemIterator, error) {
 	config, err := NewCSVEncoderConfig(sourceConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	dec := csv.NewReader(data)
-	reader := &CSVItemIterator{data: data, decoder: dec, config: config}
+	reader := &CSVItemIterator{data: data, decoder: dec, config: config, logger: logger}
 
 	if config.Separator != "" {
 		err := errors.New("input string does not match allowed characters")

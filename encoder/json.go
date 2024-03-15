@@ -22,11 +22,12 @@ type JsonItemWriter struct {
 	encoder          *json.Encoder
 	firstItemWritten bool
 	batchInfo        *cdl.BatchInfo
+	logger           cdl.Logger
 }
 
-func NewJsonItemWriter(sourceConfig map[string]any, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*JsonItemWriter, error) {
+func NewJsonItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*JsonItemWriter, error) {
 	enc := json.NewEncoder(data)
-	writer := &JsonItemWriter{data: data, encoder: enc, batchInfo: batchInfo}
+	writer := &JsonItemWriter{data: data, encoder: enc, batchInfo: batchInfo, logger: logger}
 
 	if batchInfo != nil {
 		if batchInfo.IsStartBatch {
@@ -81,9 +82,10 @@ func (j *JsonItemWriter) Write(item cdl.Item) error {
 type JsonItemIterator struct {
 	data    io.ReadCloser
 	decoder *json.Decoder
+	logger  cdl.Logger
 }
 
-func NewJsonItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*JsonItemIterator, error) {
+func NewJsonItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.ReadCloser) (*JsonItemIterator, error) {
 	// different ways the data can be encoded
 	// 1. array of objects
 	// 2. object with a key that is an array of objects
@@ -102,7 +104,7 @@ func NewJsonItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*Json
 		return nil, errors.New("expected [ at start of data stream")
 	}
 
-	return &JsonItemIterator{data: data, decoder: dec}, nil
+	return &JsonItemIterator{data: data, decoder: dec, logger: logger}, nil
 }
 
 func (j *JsonItemIterator) Close() error {

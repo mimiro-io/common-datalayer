@@ -90,7 +90,7 @@ func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug().Fields(args).Msg(message)
 }
 
-func newLogger(serviceName string, format string, level string) Logger {
+func NewLogger(serviceName string, format string, level string) Logger {
 	var slevel zerolog.Level
 	switch strings.ToLower(level) {
 	case "debug":

@@ -105,7 +105,7 @@ func (f FileSystemDataset) FullSync(ctx context.Context, batchInfo layer.BatchIn
 		}
 	}
 
-	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, file, &batchInfo)
+	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, f.logger, file, &batchInfo)
 	factory, err := encoder.NewItemFactory(f.datasetDefinition.SourceConfig)
 	mapper := layer.NewMapper(f.logger, f.datasetDefinition.IncomingMappingConfig, f.datasetDefinition.OutgoingMappingConfig)
 	datasetWriter := &FileSystemDatasetWriter{logger: f.logger, enc: enc, mapper: mapper, factory: factory}
@@ -122,7 +122,7 @@ func (f FileSystemDataset) Incremental(ctx context.Context) (layer.DatasetWriter
 		return nil, layer.Err(fmt.Errorf("could not create file %s", filePath), layer.LayerErrorInternal)
 	}
 
-	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, file, nil)
+	enc, err := encoder.NewItemWriter(f.datasetDefinition.SourceConfig, f.logger, file, nil)
 	factory, err := encoder.NewItemFactory(f.datasetDefinition.SourceConfig)
 	mapper := layer.NewMapper(f.logger, f.datasetDefinition.IncomingMappingConfig, f.datasetDefinition.OutgoingMappingConfig)
 	datasetWriter := &FileSystemDatasetWriter{logger: f.logger, enc: enc, mapper: mapper, factory: factory}
@@ -208,7 +208,7 @@ func (f FileSystemDataset) Changes(since string, limit int, latestOnly bool) (la
 	}
 
 	mapper := layer.NewMapper(f.logger, nil, f.datasetDefinition.OutgoingMappingConfig)
-	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, dataFiles, mapper, "")
+	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, f.logger, dataFiles, mapper, "")
 	return iterator, nil
 }
 
@@ -237,12 +237,12 @@ func (f FileSystemDataset) Entities(from string, limit int) (layer.EntityIterato
 	}
 
 	mapper := layer.NewMapper(f.logger, nil, f.datasetDefinition.OutgoingMappingConfig)
-	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, dataFiles, mapper, "")
+	iterator := NewFileCollectionEntityIterator(f.datasetDefinition.SourceConfig, f.path, f.logger, dataFiles, mapper, "")
 	return iterator, nil
 }
 
-func NewFileCollectionEntityIterator(sourceConfig map[string]any, path string, files []os.DirEntry, mapper *layer.Mapper, token string) *FileCollectionEntityIterator {
-	return &FileCollectionEntityIterator{sourceConfig: sourceConfig, mapper: mapper, token: token, path: path, files: files, filesIndex: 0}
+func NewFileCollectionEntityIterator(sourceConfig map[string]any, path string, logger layer.Logger, files []os.DirEntry, mapper *layer.Mapper, token string) *FileCollectionEntityIterator {
+	return &FileCollectionEntityIterator{sourceConfig: sourceConfig, mapper: mapper, token: token, path: path, files: files, filesIndex: 0, logger: logger}
 }
 
 type FileCollectionEntityIterator struct {
@@ -253,6 +253,7 @@ type FileCollectionEntityIterator struct {
 	filesIndex        int
 	currentItemReader encoder.ItemIterator
 	sourceConfig      map[string]any
+	logger            layer.Logger
 }
 
 func (f *FileCollectionEntityIterator) Context() *egdm.Context {
@@ -321,7 +322,7 @@ func (f *FileCollectionEntityIterator) NewItemReadCloser(filePath string, source
 	}
 
 	// get encoder for the file
-	itemReader, err := encoder.NewItemIterator(sourceConfig, file)
+	itemReader, err := encoder.NewItemIterator(sourceConfig, f.logger, file)
 	if err != nil {
 		return nil, layer.Err(fmt.Errorf("could not create encoder specified in dataset source config"), layer.LayerErrorBadParameter)
 	}

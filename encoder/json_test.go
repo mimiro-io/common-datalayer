@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	cdl "github.com/mimiro-io/common-datalayer"
 	"os"
 	"testing"
 )
@@ -12,7 +13,8 @@ func TestJsonRead(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	reader, err := NewJsonItemIterator(make(map[string]any), file)
+	logger := cdl.NewLogger("test", "text", "debug")
+	reader, err := NewJsonItemIterator(make(map[string]any), logger, file)
 
 	item, err := reader.Read()
 	if err != nil {
@@ -79,7 +81,8 @@ func TestJsonWrite(t *testing.T) {
 
 	itemFactory := NewJsonItemFactory()
 
-	writer, err := NewJsonItemWriter(make(map[string]any), file, nil)
+	logger := cdl.NewLogger("test", "text", "debug")
+	writer, err := NewJsonItemWriter(make(map[string]any), logger, file, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -112,7 +115,7 @@ func TestJsonWrite(t *testing.T) {
 		t.Error(err)
 	}
 
-	reader, err := NewJsonItemIterator(make(map[string]any), file)
+	reader, err := NewJsonItemIterator(make(map[string]any), logger, file)
 	if err != nil {
 		t.Error(err)
 	}
