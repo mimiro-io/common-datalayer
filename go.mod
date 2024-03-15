@@ -8,7 +8,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/mimiro-io/entity-graph-data-model v0.7.5
-	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.32.0
 )
 
