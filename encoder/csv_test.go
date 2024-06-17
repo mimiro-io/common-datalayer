@@ -1,7 +1,9 @@
 package encoder
 
 import (
+	"context"
 	cdl "github.com/mimiro-io/common-datalayer"
+	"io/ioutil"
 	"os"
 	"testing"
 )
@@ -287,5 +289,81 @@ func TestTABDelimiterWriting(t *testing.T) {
 	err = reader.Close()
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestNewCSVConcatenatingWriter(t *testing.T) {
+	// Create temporary directory
+	tempDir := os.TempDir()
+	defer os.RemoveAll(tempDir)
+
+	// Helper function to create a temp CSV file with given content
+	createTempCSVFile := func(filename string, content string) (string, error) {
+		filePath := tempDir + "/" + filename
+		err := os.WriteFile(filePath, []byte(content), 0644)
+		if err != nil {
+			return "", err
+		}
+		return filePath, nil
+	}
+
+	// Write 3 CSV files
+	file1, err := createTempCSVFile("file1.csv", "header1,header2\nrow1col1,row1col2\n")
+	if err != nil {
+		t.Fatalf("Failed to create temp file1: %v", err)
+	}
+
+	file2, err := createTempCSVFile("file2.csv", "header1,header2\nrow2col1,row2col2\n")
+	if err != nil {
+		t.Fatalf("Failed to create temp file2: %v", err)
+	}
+
+	file3, err := createTempCSVFile("file3.csv", "header1,header2\nrow3col1,row3col2\n")
+	if err != nil {
+		t.Fatalf("Failed to create temp file3: %v", err)
+	}
+
+	// Create output file
+	outputFile, err := os.Create(tempDir + "/combined.csv")
+	if err != nil {
+		t.Fatalf("Failed to create output file: %v", err)
+	}
+	defer outputFile.Close()
+
+	// Create CSVConcatenatingWriter
+	csvWriter := NewCSVConcatenatingWriter(outputFile, true)
+
+	// List of files to concatenate
+	files := []string{file1, file2, file3}
+
+	// Context
+	ctx := context.Background()
+
+	// Concatenate files
+	for _, file := range files {
+		reader, err := os.Open(file)
+		if err != nil {
+			t.Fatalf("Failed to open file %s: %v", file, err)
+		}
+		if err := csvWriter.WritePart(ctx, reader); err != nil {
+			t.Fatalf("WritePart failed for file %s: %v", file, err)
+		}
+	}
+
+	// Finalize the writer
+	if err := csvWriter.Finalize(); err != nil {
+		t.Fatalf("Finalize failed: %v", err)
+	}
+
+	// Verify the combined output
+	expectedOutput := "header1,header2\nrow1col1,row1col2\nrow2col1,row2col2\nrow3col1,row3col2\n"
+	outputBytes, err := ioutil.ReadFile(tempDir + "/combined.csv")
+	if err != nil {
+		t.Fatalf("Failed to read combined output file: %v", err)
+	}
+	output := string(outputBytes)
+
+	if output != expectedOutput {
+		t.Errorf("Unexpected combined output:\nExpected:\n%s\nGot:\n%s", expectedOutput, output)
 	}
 }
