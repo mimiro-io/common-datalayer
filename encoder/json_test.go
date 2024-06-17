@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"context"
 	cdl "github.com/mimiro-io/common-datalayer"
 	"os"
 	"testing"
@@ -158,5 +159,85 @@ func TestJsonWrite(t *testing.T) {
 	err = reader.Close()
 	if err != nil {
 		t.Error(err)
+	}
+}
+
+func TestNewJSONConcatenatingWriter(t *testing.T) {
+	// Create temporary directory
+	tempDir := os.TempDir()
+
+	defer os.RemoveAll(tempDir)
+
+	// Helper function to create a temp JSON file with given content
+	createTempJSONFile := func(filename string, content string) (string, error) {
+		filePath := tempDir + "/" + filename
+		err := os.WriteFile(filePath, []byte(content), 0644)
+		if err != nil {
+			return "", err
+		}
+		return filePath, nil
+	}
+
+	// Write 3 JSON files
+	file1, err := createTempJSONFile("file1.json", `[{"id":1,"name":"Object1"}]`)
+	if err != nil {
+		t.Fatalf("Failed to create temp file1: %v", err)
+	}
+
+	file2, err := createTempJSONFile("file2.json", `[{"id":2,"name":"Object2"}]`)
+	if err != nil {
+		t.Fatalf("Failed to create temp file2: %v", err)
+	}
+
+	file3, err := createTempJSONFile("file3.json", `[{"id":3,"name":"Object3"}]`)
+	if err != nil {
+		t.Fatalf("Failed to create temp file3: %v", err)
+	}
+
+	// Create output file
+	outputFile, err := os.Create(tempDir + "/combined.json")
+	if err != nil {
+		t.Fatalf("Failed to create output file: %v", err)
+	}
+	defer outputFile.Close()
+
+	// Create JSONConcatenatingWriter
+	jsonWriter := NewJSONConcatenatingWriter(outputFile)
+
+	// Write the opening bracket for the JSON array
+	jsonWriter.bufferedWriter.WriteString("[")
+
+	// List of files to concatenate
+	files := []string{file1, file2, file3}
+
+	// Context
+	ctx := context.Background()
+
+	// Concatenate files
+	for _, file := range files {
+		reader, err := os.Open(file)
+		if err != nil {
+			t.Fatalf("Failed to open file %s: %v", file, err)
+		}
+		if err := jsonWriter.WritePart(ctx, reader); err != nil {
+			t.Fatalf("WritePart failed for file %s: %v", file, err)
+		}
+	}
+
+	// Finalize the writer
+	if err := jsonWriter.Finalize(); err != nil {
+		t.Fatalf("Finalize failed: %v", err)
+	}
+
+	// Verify the combined output
+	expectedOutput := `[{"id":1,"name":"Object1"},{"id":2,"name":"Object2"},{"id":3,"name":"Object3"}]`
+	outputBytes, err := os.ReadFile(tempDir + "/combined.json")
+	if err != nil {
+		t.Fatalf("Failed to read combined output file: %v", err)
+	}
+	output := string(outputBytes)
+
+	if output != expectedOutput {
+		t.Errorf("Unexpected combined output:\nExpected:\n%s\nGot:\n%s", expectedOutput, output)
 	}
 }
