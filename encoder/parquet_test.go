@@ -16,7 +16,9 @@ func TestParquetRead(t *testing.T) {
 	var flush int64 = 2097152
 	sourceConfig := make(map[string]any)
 	sourceConfig["encoding"] = "parquet"
-	sourceConfig["schema"] = `message example { required int64 id; optional binary name (STRING); optional int64 age; optional binary worksfor (STRING); }`
+	sourceConfig["schema"] = []map[string]interface{}{{"name": "id", "type": "int64", "required": true}, {"name": "name", "type": "string", "required": false}, {"name": "age", "type": "int64", "required": false}, {"name": "worksfor", "type": "string", "required": false}}
+	sourceConfig["parquet_name"] = "example"
+
 	sourceConfig["flush_threshold"] = flush
 	reader, err := NewParquetItemIterator(sourceConfig, file)
 
