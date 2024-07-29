@@ -2,6 +2,7 @@ package encoder
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -277,4 +278,76 @@ func (item *ParquetItem) GetPropertyNames() []string {
 
 func (item *ParquetItem) NativeItem() any {
 	return item.data
+}
+
+// ParquetConcatenator implements the Concatenator interface for Parquet files.
+type ParquetConcatenator struct {
+	output    io.WriteCloser
+	writer    *goparquet.FileWriter
+	schema    *parquetschema.SchemaDefinition
+	schemaSet bool
+}
+
+// NewParquetConcatenator creates a new ParquetConcatenator.
+func NewParquetConcatenator(output io.WriteCloser) (*ParquetConcatenator, error) {
+	return &ParquetConcatenator{
+		output:    output,
+		schemaSet: false,
+	}, nil
+}
+
+// WritePart writes a part of a Parquet file to the target output.
+func (m *ParquetConcatenator) WritePart(ctx context.Context, reader io.ReadCloser) (err error) {
+	defer func() {
+		closeErr := reader.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	// Read the entire content of the reader into memory
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("failed to read parquet file: %w", err)
+	}
+
+	// Create a new bytes.Reader from the content, which implements io.ReadSeeker
+	memReader := bytes.NewReader(content)
+
+	fr, err := goparquet.NewFileReader(memReader)
+	if err != nil {
+		return fmt.Errorf("failed to create parquet file reader: %w", err)
+	}
+
+	if !m.schemaSet {
+		m.schema = fr.GetSchemaDefinition()
+		m.writer = goparquet.NewFileWriter(m.output, goparquet.WithSchemaDefinition(m.schema))
+		m.schemaSet = true
+	}
+
+	numRows := fr.NumRows()
+	for i := 0; i < int(numRows); i++ {
+		row, err := fr.NextRow()
+		if err != nil {
+			return fmt.Errorf("failed to read row %d: %w", i, err)
+		}
+		if err := m.writer.AddData(row); err != nil {
+			return fmt.Errorf("failed to write row %d: %w", i, err)
+		}
+	}
+
+	// Flush the row group at the end of each part
+	if err := m.writer.FlushRowGroup(); err != nil {
+		return fmt.Errorf("failed to flush row group: %w", err)
+	}
+
+	return nil
+}
+
+// Finalize finalizes the Parquet writing process.
+func (m *ParquetConcatenator) Finalize() error {
+	if err := m.writer.Close(); err != nil {
+		return fmt.Errorf("failed to close parquet writer: %w", err)
+	}
+	return m.output.Close()
 }
