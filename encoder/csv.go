@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/json"
 	"errors"
@@ -267,8 +266,8 @@ func NewCSVConcatenatingWriter(output io.WriteCloser, hasHeader bool) *CSVConcat
 	}
 }
 
-// WritePart writes a part of a CSV file to the target output.
-func (m *CSVConcatenatingWriter) WritePart(ctx context.Context, reader io.ReadCloser) (err error) {
+// Write writes a part of a CSV file to the target output.
+func (m *CSVConcatenatingWriter) Write(reader io.ReadCloser) (err error) {
 	defer func() {
 		closeErr := reader.Close()
 		if err == nil {
@@ -315,8 +314,8 @@ func (m *CSVConcatenatingWriter) WritePart(ctx context.Context, reader io.ReadCl
 	return nil
 }
 
-// Finalize completes the CSV writing process.
-func (m *CSVConcatenatingWriter) Finalize() error {
+// Close completes the CSV writing process.
+func (m *CSVConcatenatingWriter) Close() error {
 	m.writer.Flush()
 	return m.output.Close()
 }

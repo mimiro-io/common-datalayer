@@ -2,7 +2,6 @@ package encoder
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -280,24 +279,24 @@ func (item *ParquetItem) NativeItem() any {
 	return item.data
 }
 
-// ParquetConcatenator implements the Concatenator interface for Parquet files.
-type ParquetConcatenator struct {
+// ParquetConcatenatingWriter implements the ConcatenatingWriter interface for Parquet files.
+type ParquetConcatenatingWriter struct {
 	output    io.WriteCloser
 	writer    *goparquet.FileWriter
 	schema    *parquetschema.SchemaDefinition
 	schemaSet bool
 }
 
-// NewParquetConcatenator creates a new ParquetConcatenator.
-func NewParquetConcatenator(output io.WriteCloser) (*ParquetConcatenator, error) {
-	return &ParquetConcatenator{
+// NewParquetConcatenatingWriter creates a new ParquetConcatenatingWriter.
+func NewParquetConcatenatingWriter(output io.WriteCloser) (*ParquetConcatenatingWriter, error) {
+	return &ParquetConcatenatingWriter{
 		output:    output,
 		schemaSet: false,
 	}, nil
 }
 
-// WritePart writes a part of a Parquet file to the target output.
-func (m *ParquetConcatenator) WritePart(ctx context.Context, reader io.ReadCloser) (err error) {
+// Write writes a part of a Parquet file to the target output.
+func (m *ParquetConcatenatingWriter) Write(reader io.ReadCloser) (err error) {
 	defer func() {
 		closeErr := reader.Close()
 		if err == nil {
@@ -344,8 +343,8 @@ func (m *ParquetConcatenator) WritePart(ctx context.Context, reader io.ReadClose
 	return nil
 }
 
-// Finalize finalizes the Parquet writing process.
-func (m *ParquetConcatenator) Finalize() error {
+// Close finalizes the Parquet writing process.
+func (m *ParquetConcatenatingWriter) Close() error {
 	if err := m.writer.Close(); err != nil {
 		return fmt.Errorf("failed to close parquet writer: %w", err)
 	}

@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"context"
 	cdl "github.com/mimiro-io/common-datalayer"
 	"io/ioutil"
 	"os"
@@ -336,23 +335,20 @@ func TestNewCSVConcatenatingWriter(t *testing.T) {
 	// List of files to concatenate
 	files := []string{file1, file2, file3}
 
-	// Context
-	ctx := context.Background()
-
 	// Concatenate files
 	for _, file := range files {
 		reader, err := os.Open(file)
 		if err != nil {
 			t.Fatalf("Failed to open file %s: %v", file, err)
 		}
-		if err := csvWriter.WritePart(ctx, reader); err != nil {
-			t.Fatalf("WritePart failed for file %s: %v", file, err)
+		if err := csvWriter.Write(reader); err != nil {
+			t.Fatalf("Write failed for file %s: %v", file, err)
 		}
 	}
 
-	// Finalize the writer
-	if err := csvWriter.Finalize(); err != nil {
-		t.Fatalf("Finalize failed: %v", err)
+	// Close the writer
+	if err := csvWriter.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
 	}
 
 	// Verify the combined output

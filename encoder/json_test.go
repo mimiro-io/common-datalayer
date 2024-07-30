@@ -1,7 +1,6 @@
 package encoder
 
 import (
-	"context"
 	cdl "github.com/mimiro-io/common-datalayer"
 	"os"
 	"testing"
@@ -204,14 +203,8 @@ func TestNewJSONConcatenatingWriter(t *testing.T) {
 	// Create JSONConcatenatingWriter
 	jsonWriter := NewJSONConcatenatingWriter(outputFile)
 
-	// Write the opening bracket for the JSON array
-	jsonWriter.bufferedWriter.WriteString("[")
-
 	// List of files to concatenate
 	files := []string{file1, file2, file3}
-
-	// Context
-	ctx := context.Background()
 
 	// Concatenate files
 	for _, file := range files {
@@ -219,14 +212,14 @@ func TestNewJSONConcatenatingWriter(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to open file %s: %v", file, err)
 		}
-		if err := jsonWriter.WritePart(ctx, reader); err != nil {
-			t.Fatalf("WritePart failed for file %s: %v", file, err)
+		if err := jsonWriter.Write(reader); err != nil {
+			t.Fatalf("Write failed for file %s: %v", file, err)
 		}
 	}
 
-	// Finalize the writer
-	if err := jsonWriter.Finalize(); err != nil {
-		t.Fatalf("Finalize failed: %v", err)
+	// Close the writer
+	if err := jsonWriter.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
 	}
 
 	// Verify the combined output

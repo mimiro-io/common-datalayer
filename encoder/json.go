@@ -2,7 +2,6 @@ package encoder
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	cdl "github.com/mimiro-io/common-datalayer"
@@ -155,6 +154,7 @@ type JSONConcatenatingWriter struct {
 	output         io.WriteCloser
 	firstObject    bool
 	bufferedWriter *bufio.Writer
+	headerWritten  bool
 }
 
 func NewJSONConcatenatingWriter(output io.WriteCloser) *JSONConcatenatingWriter {
@@ -165,14 +165,20 @@ func NewJSONConcatenatingWriter(output io.WriteCloser) *JSONConcatenatingWriter 
 	}
 }
 
-// WritePart writes a part of a JSON array to the target output.
-func (m *JSONConcatenatingWriter) WritePart(ctx context.Context, reader io.ReadCloser) (err error) {
+// Write writes a part of a JSON array to the target output.
+func (m *JSONConcatenatingWriter) Write(reader io.ReadCloser) (err error) {
 	defer func() {
 		closeErr := reader.Close()
 		if err == nil {
 			err = closeErr
 		}
 	}()
+
+	// write the opening of the array if not already done
+	if !m.headerWritten {
+		m.bufferedWriter.WriteString("[")
+		m.headerWritten = true
+	}
 
 	decoder := json.NewDecoder(reader)
 	// Read the opening bracket of the JSON array
@@ -213,8 +219,8 @@ func (m *JSONConcatenatingWriter) WritePart(ctx context.Context, reader io.ReadC
 	return nil
 }
 
-// Finalize finalizes the JSON writing process.
-func (m *JSONConcatenatingWriter) Finalize() error {
+// Close finalizes the JSON writing process.
+func (m *JSONConcatenatingWriter) Close() error {
 	m.bufferedWriter.WriteString("]")
 	m.bufferedWriter.Flush()
 	return m.output.Close()

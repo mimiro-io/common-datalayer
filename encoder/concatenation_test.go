@@ -1,13 +1,12 @@
 package encoder
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"testing"
 )
 
-// TestGenericConcatenator tests the GenericConcatenator by writing 3 text files and concatenating them.
+// TestGenericConcatenator tests the GenericConcatenatingWriter by writing 3 text files and concatenating them.
 func TestGenericConcatenator(t *testing.T) {
 	// Create temporary directory
 	tempDir := os.TempDir()
@@ -47,14 +46,11 @@ func TestGenericConcatenator(t *testing.T) {
 	}
 	defer outputFile.Close()
 
-	// Create GenericConcatenator
-	genericConcatenator := NewGenericConcatenator(outputFile)
+	// Create GenericConcatenatingWriter
+	genericConcatenator := NewGenericConcatenatingWriter(outputFile)
 
 	// List of files to concatenate
 	files := []string{file1, file2, file3}
-
-	// Context
-	ctx := context.Background()
 
 	// Concatenate files
 	for _, file := range files {
@@ -62,14 +58,14 @@ func TestGenericConcatenator(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to open file %s: %v", file, err)
 		}
-		if err := genericConcatenator.WritePart(ctx, reader); err != nil {
-			t.Fatalf("WritePart failed for file %s: %v", file, err)
+		if err := genericConcatenator.Write(reader); err != nil {
+			t.Fatalf("Write failed for file %s: %v", file, err)
 		}
 	}
 
-	// Finalize the writer
-	if err := genericConcatenator.Finalize(); err != nil {
-		t.Fatalf("Finalize failed: %v", err)
+	// Close the writer
+	if err := genericConcatenator.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
 	}
 
 	// Verify the combined output
