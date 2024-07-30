@@ -278,3 +278,75 @@ func (item *ParquetItem) GetPropertyNames() []string {
 func (item *ParquetItem) NativeItem() any {
 	return item.data
 }
+
+// ParquetConcatenatingWriter implements the ConcatenatingWriter interface for Parquet files.
+type ParquetConcatenatingWriter struct {
+	output    io.WriteCloser
+	writer    *goparquet.FileWriter
+	schema    *parquetschema.SchemaDefinition
+	schemaSet bool
+}
+
+// NewParquetConcatenatingWriter creates a new ParquetConcatenatingWriter.
+func NewParquetConcatenatingWriter(output io.WriteCloser) (*ParquetConcatenatingWriter, error) {
+	return &ParquetConcatenatingWriter{
+		output:    output,
+		schemaSet: false,
+	}, nil
+}
+
+// Write writes a part of a Parquet file to the target output.
+func (m *ParquetConcatenatingWriter) Write(reader io.ReadCloser) (err error) {
+	defer func() {
+		closeErr := reader.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	// Read the entire content of the reader into memory
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return fmt.Errorf("failed to read parquet file: %w", err)
+	}
+
+	// Create a new bytes.Reader from the content, which implements io.ReadSeeker
+	memReader := bytes.NewReader(content)
+
+	fr, err := goparquet.NewFileReader(memReader)
+	if err != nil {
+		return fmt.Errorf("failed to create parquet file reader: %w", err)
+	}
+
+	if !m.schemaSet {
+		m.schema = fr.GetSchemaDefinition()
+		m.writer = goparquet.NewFileWriter(m.output, goparquet.WithSchemaDefinition(m.schema))
+		m.schemaSet = true
+	}
+
+	numRows := fr.NumRows()
+	for i := 0; i < int(numRows); i++ {
+		row, err := fr.NextRow()
+		if err != nil {
+			return fmt.Errorf("failed to read row %d: %w", i, err)
+		}
+		if err := m.writer.AddData(row); err != nil {
+			return fmt.Errorf("failed to write row %d: %w", i, err)
+		}
+	}
+
+	// Flush the row group at the end of each part
+	if err := m.writer.FlushRowGroup(); err != nil {
+		return fmt.Errorf("failed to flush row group: %w", err)
+	}
+
+	return nil
+}
+
+// Close finalizes the Parquet writing process.
+func (m *ParquetConcatenatingWriter) Close() error {
+	if err := m.writer.Close(); err != nil {
+		return fmt.Errorf("failed to close parquet writer: %w", err)
+	}
+	return m.output.Close()
+}

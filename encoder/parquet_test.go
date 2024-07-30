@@ -159,3 +159,117 @@ func TestParquetWrite(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestParquetConcatenatingWriter(t *testing.T) {
+	// open file
+	filename := "./testdata/example.parquet"
+	file, err := os.Open(filename)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// create concatenating writer
+	outputFile, err := os.Create("./testdata/combined.parquet")
+	if err != nil {
+		t.Error(err)
+	}
+	defer os.Remove("./testdata/combined.parquet")
+
+	concatenatingWriter, err := NewParquetConcatenatingWriter(outputFile)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// write to file
+	err = concatenatingWriter.Write(file)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// open file a second time and write 2nd part
+	file, err = os.Open(filename)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = concatenatingWriter.Write(file)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// close writer
+	err = concatenatingWriter.Close()
+
+	// read back the combined file
+	file, err = os.Open("./testdata/combined.parquet")
+	if err != nil {
+		t.Error(err)
+	}
+
+	sourceConfig := make(map[string]any)
+	sourceConfig["encoding"] = "parquet"
+	sourceConfig["schema"] = `message example { required int64 id; optional binary name (STRING); optional int64 age; optional binary worksfor (STRING); }`
+	sourceConfig["flush_threshold"] = 2097152
+	reader, err := NewParquetItemIterator(sourceConfig, file)
+
+	item, err := reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item == nil {
+		t.Error("Expected item")
+	}
+
+	if item.GetValue("name") != "John Smith" {
+		t.Error("Expected John Smith")
+	}
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item == nil {
+		t.Error("Expected item")
+	}
+
+	if item.GetValue("name") != "Jane Doe" {
+		t.Error("Expected Jane Doe")
+	}
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item == nil {
+		t.Error("Expected item")
+	}
+
+	if item.GetValue("name") != "John Smith" {
+		t.Error("Expected John Smith")
+	}
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item == nil {
+		t.Error("Expected item")
+	}
+
+	if item.GetValue("name") != "Jane Doe" {
+		t.Error("Expected Jane Doe")
+	}
+
+	item, err = reader.Read()
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item != nil {
+		t.Error("Expected no item")
+	}
+}

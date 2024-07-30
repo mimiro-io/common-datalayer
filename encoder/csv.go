@@ -248,3 +248,74 @@ func stringToRune(input string) (rune, error) {
 		return 0, errors.New("input string does not match allowed characters")
 	}
 }
+
+// CSV Concatenator
+type CSVConcatenatingWriter struct {
+	HasHeader     bool
+	output        io.WriteCloser
+	writer        *csv.Writer
+	headerWritten bool
+}
+
+// NewCSVConcatenatingWriter creates a new CSVConcatenatingWriter.
+func NewCSVConcatenatingWriter(output io.WriteCloser, hasHeader bool) *CSVConcatenatingWriter {
+	return &CSVConcatenatingWriter{
+		HasHeader: hasHeader,
+		output:    output,
+		writer:    csv.NewWriter(output),
+	}
+}
+
+// Write writes a part of a CSV file to the target output.
+func (m *CSVConcatenatingWriter) Write(reader io.ReadCloser) (err error) {
+	defer func() {
+		closeErr := reader.Close()
+		if err == nil {
+			err = closeErr
+		}
+	}()
+
+	csvReader := csv.NewReader(reader)
+
+	// Skip the header if it exists and we have already written the header from the first file
+	if m.HasHeader && m.headerWritten {
+		_, err := csvReader.Read()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Read the header if it exists and we haven't written the header yet
+	if m.HasHeader && !m.headerWritten {
+		header, err := csvReader.Read()
+		if err != nil {
+			return err
+		}
+		if err := m.writer.Write(header); err != nil {
+			return err
+		}
+		m.headerWritten = true
+	}
+
+	// Read and write the data
+	for {
+		record, err := csvReader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		if err := m.writer.Write(record); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Close completes the CSV writing process.
+func (m *CSVConcatenatingWriter) Close() error {
+	m.writer.Flush()
+	return m.output.Close()
+}
