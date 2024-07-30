@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
+	common_datalayer "github.com/mimiro-io/common-datalayer"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
-
-	common_datalayer "github.com/mimiro-io/common-datalayer"
 )
 
 func TestStartStopSampleDataLayer(t *testing.T) {

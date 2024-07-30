@@ -293,7 +293,7 @@ func TestTABDelimiterWriting(t *testing.T) {
 
 func TestNewCSVConcatenatingWriter(t *testing.T) {
 	// Create temporary directory
-	tempDir := os.TempDir()
+	tempDir, err := os.MkdirTemp("", "TestCSVConcatenatingWriter")
 	defer os.RemoveAll(tempDir)
 
 	// Helper function to create a temp CSV file with given content

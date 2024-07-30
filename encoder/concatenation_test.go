@@ -9,7 +9,10 @@ import (
 // TestGenericConcatenator tests the GenericConcatenatingWriter by writing 3 text files and concatenating them.
 func TestGenericConcatenator(t *testing.T) {
 	// Create temporary directory
-	tempDir := os.TempDir()
+	tempDir, err := os.MkdirTemp("", "TestGenericConcatenator")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
 
 	defer os.RemoveAll(tempDir)
 

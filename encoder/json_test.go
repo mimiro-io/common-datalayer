@@ -163,7 +163,7 @@ func TestJsonWrite(t *testing.T) {
 
 func TestNewJSONConcatenatingWriter(t *testing.T) {
 	// Create temporary directory
-	tempDir := os.TempDir()
+	tempDir, err := os.MkdirTemp("", "TestJSONConcatenatingWriter")
 
 	defer os.RemoveAll(tempDir)
 
