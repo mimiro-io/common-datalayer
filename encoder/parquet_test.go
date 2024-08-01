@@ -175,10 +175,7 @@ func TestParquetConcatenatingWriter(t *testing.T) {
 	}
 	defer os.Remove("./testdata/combined.parquet")
 
-	concatenatingWriter, err := NewParquetConcatenatingWriter(outputFile)
-	if err != nil {
-		t.Error(err)
-	}
+	concatenatingWriter := NewParquetConcatenatingWriter(outputFile)
 
 	// write to file
 	err = concatenatingWriter.Write(file)
