@@ -11,15 +11,12 @@ func NewItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.Rea
 	if !ok {
 		return nil, errors.New("no encoding specified in source config")
 	}
-
 	if encoding == "json" {
 		return NewJsonItemIterator(sourceConfig, logger, data)
 	}
-
 	if encoding == "csv" {
 		return NewCSVItemIterator(sourceConfig, logger, data)
 	}
-
 	if encoding == "parquet" {
 		return NewParquetItemIterator(sourceConfig, data)
 	}
@@ -58,14 +55,41 @@ func NewItemFactory(sourceConfig map[string]any) (ItemFactory, error) {
 	if encoding == "json" {
 		return &JsonItemFactory{}, nil
 	}
-
 	if encoding == "csv" {
 		return &CSVItemFactory{}, nil
 
 	}
-
 	if encoding == "flatfile" {
 		return &FlatFileItemFactory{}, nil
+	}
+	if encoding == "parquet" {
+		return &ParquetItemFactory{}, nil
+	}
+
+	return nil, nil
+}
+
+func NewConcatenatingWriter(sourceConfig map[string]any, output io.WriteCloser) (ConcatenatingWriter, error) {
+	encoding, ok := sourceConfig["encoding"]
+	if !ok {
+		return nil, errors.New("no encoding specified in source config")
+	}
+
+	if encoding == "json" {
+		return NewJSONConcatenatingWriter(output), nil
+	}
+
+	if encoding == "csv" {
+		hasHeader := sourceConfig["has_header"].(bool)
+		return NewCSVConcatenatingWriter(output, hasHeader), nil
+	}
+
+	if encoding == "flatfile" {
+		return NewGenericConcatenatingWriter(output), nil
+	}
+
+	if encoding == "parquet" {
+		return NewParquetConcatenatingWriter(output), nil
 	}
 
 	return nil, nil

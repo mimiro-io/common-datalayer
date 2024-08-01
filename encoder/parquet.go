@@ -288,11 +288,11 @@ type ParquetConcatenatingWriter struct {
 }
 
 // NewParquetConcatenatingWriter creates a new ParquetConcatenatingWriter.
-func NewParquetConcatenatingWriter(output io.WriteCloser) (*ParquetConcatenatingWriter, error) {
+func NewParquetConcatenatingWriter(output io.WriteCloser) *ParquetConcatenatingWriter {
 	return &ParquetConcatenatingWriter{
 		output:    output,
 		schemaSet: false,
-	}, nil
+	}
 }
 
 // Write writes a part of a Parquet file to the target output.
