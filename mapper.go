@@ -275,6 +275,11 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		}
 	}
 
+	// apply default type if missing
+	if entity.References["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] == nil && mapper.outgoingMappingConfig.DefaultType != "" {
+		entity.References["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] = mapper.outgoingMappingConfig.DefaultType
+	}
+
 	return nil
 }
 

@@ -709,6 +709,43 @@ func TestMapOutgoingItemWithWrongRecordedProperty(t *testing.T) {
 	}
 }
 
+// test outgoing property mapping
+func TestMapOutgoingItemWithDefaultRdfType(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+	outgoingConfig.DefaultType = "http://example.com/types/Person"
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("name", "homer")
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.ID != "http://data.example.com/1" {
+		t.Error("entity ID should be http://data.example.com/1")
+	}
+
+	if entity.References["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] != "http://example.com/types/Person" {
+		t.Error("entity reference type should be http://example.com/types/Person")
+	}
+}
+
 // Test Incoming property mapping
 func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
 	logger := NewLogger("testService", "text", "info")

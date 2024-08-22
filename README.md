@@ -186,13 +186,14 @@ The EntityToItemPropertyMapping is defined as follows:
 
 The `outgoing_mapping_config` is a JSON Object and used to provide information about how to map outgoing data from the underlying item type to the Entity. The outgoing mapping config is defined as follows:
 
-| JSON Field        | Description                                     |
-| ----------------- | ----------------------------------------------- |
-| base_uri          | Used when mapping all properties                |
-| constructions     | An array of PropertyConstructor objects         |
-| property_mappings | An array of ItemToEntityPropertyMapping objects |
-| map_all           | If true, all properties are mapped              |
-| custom            | A map of custom config keys and values          |
+| JSON Field        | Description                                                                |
+|-------------------|----------------------------------------------------------------------------|
+| base_uri          | Used when mapping all properties                                           |
+| constructions     | An array of PropertyConstructor objects                                    |
+| property_mappings | An array of ItemToEntityPropertyMapping objects                            |
+| map_all           | If true, all properties are mapped                                         |
+| custom            | A map of custom config keys and values                                     |
+| default_type      | optional: if no rdf type is mapped then the value of this property is used |
 
 Outgoing mappings define optional constructions and mappings. Constructions are functions that can create new properties
 before any mapping is applied. This can be used, for example, to concatenate multiple properties into a single property.

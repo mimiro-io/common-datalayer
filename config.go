@@ -57,6 +57,7 @@ type OutgoingMappingConfig struct {
 	Constructions    []*PropertyConstructor         `json:"constructions"`
 	PropertyMappings []*ItemToEntityPropertyMapping `json:"property_mappings"`
 	MapAll           bool                           `json:"map_all"`
+	DefaultType      string                         `json:"default_type"` // the default rdf type if none is specified
 }
 
 type EntityToItemPropertyMapping struct {
