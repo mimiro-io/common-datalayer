@@ -13,6 +13,8 @@ jobs:
     name: Build and Test
     runs-on: ubuntu-latest
     steps:
+      - name: whoami
+        run: whoami
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
