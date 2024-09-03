@@ -7,7 +7,7 @@ require (
 	github.com/fraugster/parquet-go v0.12.0
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/labstack/echo/v4 v4.12.0
-	github.com/mimiro-io/entity-graph-data-model v0.7.7
+	github.com/mimiro-io/entity-graph-data-model v0.7.8
 	github.com/rs/zerolog v1.33.0
 )
 
