@@ -76,6 +76,16 @@ func (m *mutableItem) NativeItem() any { return m.item.NativeItem() }
 func (m *mutableItem) GetPropertyNames() []string { return m.item.GetPropertyNames() }
 
 func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
+
+	// ensure props and refs are not nil
+	if entity.Properties == nil {
+		entity.Properties = make(map[string]any)
+	}
+
+	if entity.References == nil {
+		entity.References = make(map[string]any)
+	}
+
 	// apply constructions
 	constructedProperties := make(map[string]any)
 	item = &mutableItem{item, constructedProperties}
