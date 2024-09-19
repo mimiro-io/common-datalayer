@@ -1027,7 +1027,12 @@ func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
 		&ItemToEntityPropertyMapping{
 			Property:       "age",
 			EntityProperty: "age",
-			Datatype:       "integer",
+			Datatype:       "int",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "phone",
+			EntityProperty: "phone",
+			Datatype:       "long",
 		},
 		&ItemToEntityPropertyMapping{
 			Property:       "height",
@@ -1035,9 +1040,19 @@ func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
 			Datatype:       "float",
 		},
 		&ItemToEntityPropertyMapping{
+			Property:       "weight",
+			EntityProperty: "weight",
+			Datatype:       "double",
+		},
+		&ItemToEntityPropertyMapping{
 			Property:       "male",
 			EntityProperty: "male",
 			Datatype:       "bool",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "int",
 		},
 		&ItemToEntityPropertyMapping{
 			Property:        "id",
@@ -1048,8 +1063,11 @@ func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
 	// make the item
 	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
 	item.SetValue("age", "42")
+	item.SetValue("phone", "31474836")
 	item.SetValue("height", "1.92")
+	item.SetValue("weight", "70.9")
 	item.SetValue("male", 1)
+	item.SetValue("accountNumber", "3147483647")
 	item.SetValue("id", "1")
 
 	mapper := NewMapper(logger, nil, outgoingConfig)
@@ -1068,11 +1086,26 @@ func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
 		t.Error("entity property age should be 42 as integer")
 	}
 
-	if entity.Properties["http://data.example.com/schema/height"] != 1.92 {
-		t.Error("entity property height should be 1.92 as float64")
+	var phone int64 = 31474836
+	if entity.Properties["http://data.example.com/schema/phone"] != phone {
+		t.Errorf("entity property phone should be %d as integer", phone)
+	}
+
+	var height float32 = 1.92
+	if entity.Properties["http://data.example.com/schema/height"] != height {
+		t.Error("entity property height should be 1.92 as float32")
+	}
+
+	var weight float64 = 70.9
+	if entity.Properties["http://data.example.com/schema/weight"] != weight {
+		t.Error("entity property weight should be 70.9 as float64")
 	}
 
 	if entity.Properties["http://data.example.com/schema/male"] != true {
 		t.Error("entity property male should be true as bool")
+	}
+
+	if entity.Properties["http://data.example.com/schema/accountNumber"] != 3147483647 {
+		t.Error("entity property accountNumber should be 3147483647 as integer")
 	}
 }
