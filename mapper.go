@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -217,6 +218,26 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			}
 		}
 
+		if mapping.Datatype != "" {
+			var err error
+			switch mapping.Datatype {
+			case "integer", "int":
+				propertyValue, err = intOfValue(propertyValue)
+			case "float":
+				propertyValue, err = floatOfValue(propertyValue)
+			case "bool":
+				propertyValue, err = boolOfValue(propertyValue)
+			case "string":
+				propertyValue, err = stringOfValue(propertyValue)
+			default:
+				return fmt.Errorf("unsupported datatype %s", mapping.Datatype)
+			}
+
+			if err != nil {
+				return fmt.Errorf("failed to convert value to datatype. item: %+v, error: %w", item.NativeItem(), err)
+			}
+		}
+
 		if mapping.IsIdentity {
 			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
@@ -414,8 +435,57 @@ func intOfValue(val any) (int, error) {
 		return int(v.Uint()), nil
 	case reflect.Float32, reflect.Float64:
 		return int(v.Float()), nil
+	case reflect.String:
+		value, err := strconv.ParseInt(v.String(), 10, 64)
+		return int(value), err
 	default:
 		return 0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+}
+
+func floatOfValue(val any) (float64, error) {
+	if val == nil {
+		return 0.0, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return v.Float(), nil
+	case reflect.String:
+		return strconv.ParseFloat(v.String(), 64)
+	default:
+		return 0.0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+}
+
+func boolOfValue(val any) (bool, error) {
+	if val == nil {
+		return false, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+
+	switch t.Kind() {
+	case reflect.String:
+		return strconv.ParseBool(v.String())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.ParseBool(fmt.Sprint(v.Int()))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.ParseBool(fmt.Sprint(v.Uint()))
+	case reflect.Float32, reflect.Float64:
+		return strconv.ParseBool(fmt.Sprint(v.Float()))
+	case reflect.Bool:
+		return v.Bool(), nil
+	default:
+		return false, fmt.Errorf("unsupported type %s", t.Kind())
 	}
 }
 

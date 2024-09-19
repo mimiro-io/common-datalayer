@@ -1014,3 +1014,65 @@ func TestMapIncomingItemWithRecordedMapping(t *testing.T) {
 		t.Error("item property recorded_ts should be 1645554566455")
 	}
 }
+
+func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "age",
+			EntityProperty: "age",
+			Datatype:       "integer",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "height",
+			EntityProperty: "height",
+			Datatype:       "float",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "male",
+			EntityProperty: "male",
+			Datatype:       "bool",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("age", "42")
+	item.SetValue("height", "1.92")
+	item.SetValue("male", 1)
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.ID != "http://data.example.com/1" {
+		t.Error("entity ID should be http://data.example.com/1")
+	}
+
+	if entity.Properties["http://data.example.com/schema/age"] != 42 {
+		t.Error("entity property age should be 42 as integer")
+	}
+
+	if entity.Properties["http://data.example.com/schema/height"] != 1.92 {
+		t.Error("entity property height should be 1.92 as float64")
+	}
+
+	if entity.Properties["http://data.example.com/schema/male"] != true {
+		t.Error("entity property male should be true as bool")
+	}
+}
