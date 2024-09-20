@@ -286,7 +286,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				return fmt.Errorf("IsDeleted property '%v' must be a bool. item: %+v", propertyName, item.NativeItem())
 			}
 		} else if mapping.IsRecorded {
-			intVal, err := int32OfValue(propertyValue)
+			intVal, err := int64OfValue(propertyValue)
 			if err != nil {
 				return fmt.Errorf("IsRecorded property '%v' must be a uint64 (unix timestamp), item: %+v, error: %w", propertyName, item.NativeItem(), err)
 			}
@@ -432,26 +432,28 @@ func int32OfValue(val any) (int, error) {
 
 	v := reflect.ValueOf(val)
 	t := v.Type()
+	var value int64
 
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(v.Int()), nil
+		value = v.Int()
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return int(v.Uint()), nil
+		value = int64(v.Uint())
 	case reflect.Float32, reflect.Float64:
-		return int(v.Float()), nil
+		value = int64(v.Float())
 	case reflect.String:
-		value, err := strconv.ParseInt(v.String(), 10, strconv.IntSize)
+		var err error
+		value, err = strconv.ParseInt(v.String(), 10, strconv.IntSize)
 		if err != nil {
 			return 0, err
 		}
-		if value < math.MinInt || value > math.MaxInt {
-			return 0, fmt.Errorf("value out of range for int type")
-		}
-		return int(value), nil
 	default:
 		return 0, fmt.Errorf("unsupported type %s", t.Kind())
 	}
+	if value < math.MinInt32 || value > math.MaxInt32 {
+		return 0, fmt.Errorf("value out of range for int type. Maybe try long(int64) instead")
+	}
+	return int(value), nil
 }
 
 func int64OfValue(val any) (int64, error) {
@@ -512,20 +514,28 @@ func float32OfValue(val any) (float32, error) {
 
 	v := reflect.ValueOf(val)
 	t := v.Type()
+	var value float64
 
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return float32(v.Int()), nil
+		value = float64(v.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return float32(v.Uint()), nil
+		value = float64(v.Uint())
 	case reflect.Float32, reflect.Float64:
-		return float32(v.Float()), nil
+		value = v.Float()
 	case reflect.String:
-		value, err := strconv.ParseFloat(v.String(), 64)
-		return float32(value), err
+		var err error
+		value, err = strconv.ParseFloat(v.String(), 64)
+		if err != nil {
+			return 0, err
+		}
 	default:
 		return 0.0, fmt.Errorf("unsupported type %s", t.Kind())
 	}
+	if value < math.SmallestNonzeroFloat32 || value > math.MaxFloat32 {
+		return 0, fmt.Errorf("value out of range for Float32 type. Maybe use double(float64) instead")
+	}
+	return float32(value), nil
 }
 
 func boolOfValue(val any) (bool, error) {

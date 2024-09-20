@@ -275,7 +275,7 @@ After any constructors the mappings are applied, they are defined as follows:
 | is_recorded       | Write the entity recorded time to this property                |
 
 **Datatypes**
-Datatypes are based on the [RDF datatypes](https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes) and can be used to cast the value of the property to the correct type. The following datatypes are supported: 
+Datatypes are based on the [XML datatypes](https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes) and can be used to cast the value of the property to the correct type. The following datatypes are supported: 
 
 | Datatype | Golang type |
 |----------|-------------|
