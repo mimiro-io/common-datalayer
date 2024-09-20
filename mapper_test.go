@@ -1,6 +1,8 @@
 package common_datalayer
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -1012,5 +1014,301 @@ func TestMapIncomingItemWithRecordedMapping(t *testing.T) {
 
 	if item.GetValue("recorded_ts") != uint64(1645554566455) {
 		t.Error("item property recorded_ts should be 1645554566455")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCasting(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "age",
+			EntityProperty: "age",
+			Datatype:       "int",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "phone",
+			EntityProperty: "phone",
+			Datatype:       "long",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "height",
+			EntityProperty: "height",
+			Datatype:       "float",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "weight",
+			EntityProperty: "weight",
+			Datatype:       "double",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "male",
+			EntityProperty: "male",
+			Datatype:       "bool",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "long",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("age", "42")
+	item.SetValue("phone", "31474836")
+	item.SetValue("height", "1.92")
+	item.SetValue("weight", "70.9")
+	item.SetValue("male", 1)
+	item.SetValue("accountNumber", "3147483647")
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.ID != "http://data.example.com/1" {
+		t.Error("entity ID should be http://data.example.com/1")
+	}
+
+	if entity.Properties["http://data.example.com/schema/age"] != 42 {
+		t.Error("entity property age should be 42 as integer")
+	}
+
+	var phone int64 = 31474836
+	if entity.Properties["http://data.example.com/schema/phone"] != phone {
+		t.Errorf("entity property phone should be %d as integer", phone)
+	}
+
+	var height float32 = 1.92
+	if entity.Properties["http://data.example.com/schema/height"] != height {
+		t.Error("entity property height should be 1.92 as float32")
+	}
+
+	var weight float64 = 70.9
+	if entity.Properties["http://data.example.com/schema/weight"] != weight {
+		t.Error("entity property weight should be 70.9 as float64")
+	}
+
+	if entity.Properties["http://data.example.com/schema/male"] != true {
+		t.Error("entity property male should be true as bool")
+	}
+
+	var accountNumber int64 = 3147483647
+	if entity.Properties["http://data.example.com/schema/accountNumber"] != accountNumber {
+		t.Error("entity property accountNumber should be 3147483647 as int64")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCastingOverIntLimit(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "int",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("accountNumber", "814748364788888")
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("Should have failed with integer out of range")
+		t.FailNow()
+	}
+
+	if !strings.Contains(err.Error(), "error: value out of range for int type") {
+		println(err.Error())
+		t.Error("wrong error message")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCastingOverIntLimit2(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "int",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("accountNumber", 814748364788888)
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("Should have failed with integer out of range")
+		t.FailNow()
+	}
+
+	if !strings.Contains(err.Error(), "error: value out of range for int type") {
+		println(err.Error())
+		t.Error("wrong error message")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCastingOverFloatLimit(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "float",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("accountNumber", fmt.Sprintf("%f", math.MaxFloat32*5))
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("Should have failed with float out of range")
+		t.FailNow()
+	}
+
+	if !strings.Contains(err.Error(), "error: value out of range for Float32 type") {
+		println(err.Error())
+		t.Error("wrong error message")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCastingOverFloatLimit2(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "float",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("accountNumber", math.MaxFloat32*5)
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("Should have failed with float out of range")
+		t.FailNow()
+	}
+
+	if !strings.Contains(err.Error(), "error: value out of range for Float32 type") {
+		println(err.Error())
+		t.Error("wrong error message")
+	}
+}
+
+func TestMapOutgoingItemWithPropertyDatatypeCastingInvalidValue(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "accountNumber",
+			EntityProperty: "accountNumber",
+			Datatype:       "float",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	item.SetValue("accountNumber", "banana")
+	item.SetValue("id", "1")
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err == nil {
+		t.Error("Should have failed with invalid syntax")
+		t.FailNow()
+	}
+
+	if !strings.Contains(err.Error(), "error: strconv.ParseFloat: parsing \"banana\": invalid syntax") {
+		println(err.Error())
+		t.Error("wrong error message")
 	}
 }

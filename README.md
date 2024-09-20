@@ -260,19 +260,33 @@ full name property
 
 After any constructors the mappings are applied, they are defined as follows:
 
-| Field Name        | Description                                         |
-| ----------------- | --------------------------------------------------- |
-| custom            | A map of custom configuration keys and values       |
-| required          | Indicates whether the field is required             |
-| entity_property   | The entity property to which the item property maps |
-| property          | The item property being mapped                      |
-| datatype          | The data type of the mapped property, optional      |
-| is_reference      | Indicates whether the property is a reference       |
-| uri_value_pattern | The URL value pattern                               |
-| is_identity       | Indicates whether the property is an identity       |
-| default_value     | The default value for the property                  |
-| is_deleted        | Let the property contain the entities deleted state |
-| is_recorded       | Write the entity recorded time to this property     |
+| Field Name        | Description                                                    |
+| ----------------- |----------------------------------------------------------------|
+| custom            | A map of custom configuration keys and values                  |
+| required          | Indicates whether the field is required                        |
+| entity_property   | The entity property to which the item property maps            |
+| property          | The item property being mapped                                 |
+| datatype          | The data type of the mapped property, optional. See list below |
+| is_reference      | Indicates whether the property is a reference                  |
+| uri_value_pattern | The URL value pattern                                          |
+| is_identity       | Indicates whether the property is an identity                  |
+| default_value     | The default value for the property                             |
+| is_deleted        | Let the property contain the entities deleted state            |
+| is_recorded       | Write the entity recorded time to this property                |
+
+**Datatypes**
+Datatypes are based on the [XML datatypes](https://www.w3.org/TR/xmlschema-2/#built-in-primitive-datatypes) and can be used to cast the value of the property to the correct type. The following datatypes are supported: 
+
+| Datatype | Golang type |
+|----------|-------------|
+| string   | string      |
+| int      | int32       |
+| long     | int64       |
+| float    | float32     |
+| double   | float64     |
+| boolean  | bool        |
+
+
 
 ## The Mapper
 

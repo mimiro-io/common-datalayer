@@ -2,8 +2,10 @@ package common_datalayer
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -217,6 +219,30 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 			}
 		}
 
+		if mapping.Datatype != "" {
+			var err error
+			switch mapping.Datatype {
+			case "integer", "int":
+				propertyValue, err = int32OfValue(propertyValue)
+			case "long":
+				propertyValue, err = int64OfValue(propertyValue)
+			case "float":
+				propertyValue, err = float32OfValue(propertyValue)
+			case "double":
+				propertyValue, err = float64OfValue(propertyValue)
+			case "bool":
+				propertyValue, err = boolOfValue(propertyValue)
+			case "string":
+				propertyValue, err = stringOfValue(propertyValue)
+			default:
+				return fmt.Errorf("unsupported datatype %s", mapping.Datatype)
+			}
+
+			if err != nil {
+				return fmt.Errorf("failed to convert value to datatype. item: %+v, error: %w", item.NativeItem(), err)
+			}
+		}
+
 		if mapping.IsIdentity {
 			idValue, err := stringOfValue(propertyValue)
 			if err != nil {
@@ -260,7 +286,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				return fmt.Errorf("IsDeleted property '%v' must be a bool. item: %+v", propertyName, item.NativeItem())
 			}
 		} else if mapping.IsRecorded {
-			intVal, err := intOfValue(propertyValue)
+			intVal, err := int64OfValue(propertyValue)
 			if err != nil {
 				return fmt.Errorf("IsRecorded property '%v' must be a uint64 (unix timestamp), item: %+v, error: %w", propertyName, item.NativeItem(), err)
 			}
@@ -331,11 +357,11 @@ func slice(item Item, p1, p2, p3 string) (string, error) {
 		return "", fmt.Errorf("slice: property '%s' could not be accessed. item: %+v, error: %w", p1, item.NativeItem(), err)
 	}
 
-	start, err := intOfValue(p2)
+	start, err := int32OfValue(p2)
 	if err != nil {
 		return "", fmt.Errorf("slice: start index '%s' could not be parsed. item: %+v, error: %w", p2, item.NativeItem(), err)
 	}
-	end, err := intOfValue(p3)
+	end, err := int32OfValue(p3)
 	if err != nil {
 		return "", fmt.Errorf("slice: end index '%s' could not be parsed. item: %+v, error: %w", p3, item.NativeItem(), err)
 	}
@@ -399,7 +425,38 @@ func concat(item Item, propName1, propName2 string) (string, error) {
 	return s1 + s2, nil
 }
 
-func intOfValue(val any) (int, error) {
+func int32OfValue(val any) (int, error) {
+	if val == nil {
+		return 0, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+	var value int64
+
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		value = v.Int()
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		value = int64(v.Uint())
+	case reflect.Float32, reflect.Float64:
+		value = int64(v.Float())
+	case reflect.String:
+		var err error
+		value, err = strconv.ParseInt(v.String(), 10, strconv.IntSize)
+		if err != nil {
+			return 0, err
+		}
+	default:
+		return 0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+	if value < math.MinInt32 || value > math.MaxInt32 {
+		return 0, fmt.Errorf("value out of range for int type. Maybe try long(int64) instead")
+	}
+	return int(value), nil
+}
+
+func int64OfValue(val any) (int64, error) {
 	if val == nil {
 		return 0, fmt.Errorf("value is nil")
 	}
@@ -409,13 +466,99 @@ func intOfValue(val any) (int, error) {
 
 	switch t.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return int(v.Int()), nil
+		return v.Int(), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return int(v.Uint()), nil
+		return int64(v.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		return int(v.Float()), nil
+		return int64(v.Float()), nil
+	case reflect.String:
+		value, err := strconv.ParseInt(v.String(), 10, strconv.IntSize)
+		if err != nil {
+			return 0, err
+		}
+		if value < math.MinInt || value > math.MaxInt {
+			return 0, fmt.Errorf("value out of range for int type")
+		}
+		return value, nil
 	default:
 		return 0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+}
+
+func float64OfValue(val any) (float64, error) {
+	if val == nil {
+		return 0.0, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return float64(v.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return float64(v.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return v.Float(), nil
+	case reflect.String:
+		return strconv.ParseFloat(v.String(), 64)
+	default:
+		return 0.0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+}
+
+func float32OfValue(val any) (float32, error) {
+	if val == nil {
+		return 0.0, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+	var value float64
+
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		value = float64(v.Int())
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		value = float64(v.Uint())
+	case reflect.Float32, reflect.Float64:
+		value = v.Float()
+	case reflect.String:
+		var err error
+		value, err = strconv.ParseFloat(v.String(), 64)
+		if err != nil {
+			return 0, err
+		}
+	default:
+		return 0.0, fmt.Errorf("unsupported type %s", t.Kind())
+	}
+	if value < math.SmallestNonzeroFloat32 || value > math.MaxFloat32 {
+		return 0, fmt.Errorf("value out of range for Float32 type. Maybe use double(float64) instead")
+	}
+	return float32(value), nil
+}
+
+func boolOfValue(val any) (bool, error) {
+	if val == nil {
+		return false, fmt.Errorf("value is nil")
+	}
+
+	v := reflect.ValueOf(val)
+	t := v.Type()
+
+	switch t.Kind() {
+	case reflect.String:
+		return strconv.ParseBool(v.String())
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.ParseBool(fmt.Sprint(v.Int()))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.ParseBool(fmt.Sprint(v.Uint()))
+	case reflect.Float32, reflect.Float64:
+		return strconv.ParseBool(fmt.Sprint(v.Float()))
+	case reflect.Bool:
+		return v.Bool(), nil
+	default:
+		return false, fmt.Errorf("unsupported type %s", t.Kind())
 	}
 }
 
