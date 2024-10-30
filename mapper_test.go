@@ -582,7 +582,139 @@ func TestMapOutgoingItemWithMapAllProperties(t *testing.T) {
 	}
 
 	if entity.Properties["http://data.example.com/schema/id"] != "1" {
+		t.Error("entity property id should be 1")
+	}
+
+	if len(entity.Properties) != 2 {
+		t.Error("entity should have 2 properties")
+	}
+}
+
+func TestMapOutgoingItemWithSubItemMapAll(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		MapAll:           true,
+		BaseURI:          "http://data.example.com/schema/",
+		PropertyMappings: make([]*ItemToEntityPropertyMapping, 0),
+	}
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{"name", "id", "orders"}}
+	item.SetValue("name", "homer")
+	item.SetValue("id", "1")
+
+	subItem := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{"id", "cost"}}
+	subItem.SetValue("id", "10")
+	subItem.SetValue("cost", 100.0)
+
+	item.SetValue("orders", []Item{subItem})
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.ID != "http://data.example.com/1" {
+		t.Error("entity ID should be 1")
+	}
+
+	if entity.Properties["http://data.example.com/schema/name"] != "homer" {
 		t.Error("entity property name should be homer")
+	}
+
+	if entity.Properties["http://data.example.com/schema/id"] != "1" {
+		t.Error("entity property name should be homer")
+	}
+
+	if entity.Properties["http://data.example.com/schema/orders"].([]*egdm.Entity)[0].Properties["http://data.example.com/schema/id"] != "10" {
+		t.Error("nested sub entity should get Entity type and get the same BaseURI namespace as the main properties")
+	}
+
+	if len(entity.Properties) != 3 {
+		t.Error("entity should have 3 properties")
+	}
+}
+
+func TestMapOutgoingItemWithSubItemPropertyMapping(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	outgoingConfig := &OutgoingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+	outgoingConfig.PropertyMappings = make([]*ItemToEntityPropertyMapping, 0)
+
+	outgoingConfig.PropertyMappings = append(outgoingConfig.PropertyMappings,
+		&ItemToEntityPropertyMapping{
+			Property:       "address",
+			EntityProperty: "homeAddress",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "street",
+			EntityProperty: "street",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "city",
+			EntityProperty: "city",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:       "name",
+			EntityProperty: "firstName",
+		},
+		&ItemToEntityPropertyMapping{
+			Property:        "id",
+			IsIdentity:      true,
+			URIValuePattern: "http://data.example.com/{value}",
+		})
+
+	// make the item
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{"name", "id", "address"}}
+	item.SetValue("name", "homer")
+	item.SetValue("id", "1")
+
+	subItem := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{"id", "street", "city"}}
+	subItem.SetValue("id", "10")
+	subItem.SetValue("street", "Main street")
+	subItem.SetValue("city", "Springfield")
+
+	item.SetValue("address", subItem)
+
+	mapper := NewMapper(logger, nil, outgoingConfig)
+
+	entity := egdm.NewEntity()
+	err := mapper.MapItemToEntity(item, entity)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if entity.Properties["http://data.example.com/schema/firstName"] != "homer" {
+		t.Error("entity property firstName should be homer")
+	}
+
+	homeAddress, ok := entity.Properties["http://data.example.com/schema/homeAddress"].(*egdm.Entity)
+	if !ok {
+		t.Error("nested sub entity should get Entity type")
+	} else {
+		if homeAddress.Properties["http://data.example.com/schema/street"] != "Main street" {
+			t.Error("nested sub entity should get Entity type and get the same BaseURI namespace as the main properties")
+		}
+		if homeAddress.Properties["http://data.example.com/schema/city"] != "Springfield" {
+			t.Error("nested sub entity should get Entity type and get the same BaseURI namespace as the main properties")
+		}
+	}
+
+	if entity.Properties["http://data.example.com/schema/homeAddress"].(*egdm.Entity).Properties["http://data.example.com/schema/city"] != "Springfield" {
+		t.Error("nested sub entity should get Entity type and get the same BaseURI namespace as the main properties")
 	}
 
 	if len(entity.Properties) != 2 {

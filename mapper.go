@@ -184,7 +184,12 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		for _, propertyName := range item.GetPropertyNames() {
 			propertyValue := item.GetValue(propertyName)
 			entityPropertyName := mapper.outgoingMappingConfig.BaseURI + propertyName
-			entity.Properties[entityPropertyName] = propertyValue
+
+			value, err := mapper.mapSubEntities(propertyValue)
+			if err != nil {
+				return fmt.Errorf("failed to map sub entities. item: %+v, error: %w", item.NativeItem(), err)
+			}
+			entity.Properties[entityPropertyName] = value
 		}
 	}
 
@@ -296,8 +301,12 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 				return fmt.Errorf("entity property name is required for mapping: %+v", mapping)
 			}
 
-			// regular property
-			entity.Properties[entityPropertyName] = propertyValue
+			// check if property is a sub item
+			value, err := mapper.mapSubEntities(propertyValue)
+			if err != nil {
+				return fmt.Errorf("failed to map sub entities. item: %+v, error: %w", item.NativeItem(), err)
+			}
+			entity.Properties[entityPropertyName] = value
 		}
 	}
 
@@ -317,6 +326,35 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	}
 
 	return nil
+}
+
+// mapSubEntities takes a property value and maps it to a sub entity or array of sub entities if it is an Item or a slice of Items
+// if the property value is not an Item or a slice of Items, it returns the property value as is
+func (mapper *Mapper) mapSubEntities(propertyValue any) (any, error) {
+	var result any
+	switch propertyValue.(type) {
+	case []Item:
+		var subEntities []*egdm.Entity
+		for _, i := range propertyValue.([]Item) {
+			e := &egdm.Entity{Properties: make(map[string]any)}
+			err := mapper.MapItemToEntity(i, e)
+			if err != nil {
+				return propertyValue, fmt.Errorf("failed to map sub item to entity. item: %+v, error: %w", i.NativeItem(), err)
+			}
+			subEntities = append(subEntities, e)
+		}
+		result = subEntities
+	case Item:
+		e := &egdm.Entity{Properties: make(map[string]any)}
+		err := mapper.MapItemToEntity(propertyValue.(Item), e)
+		if err != nil {
+			return propertyValue, fmt.Errorf("failed to map sub item to entity. item: %+v, error: %w", propertyValue.(Item).NativeItem(), err)
+		}
+		result = e
+	default:
+		result = propertyValue
+	}
+	return result, nil
 }
 
 func getValueFromItemOrConstruct(item Item, propertyName string, constructedProperties map[string]any) (any, error) {
