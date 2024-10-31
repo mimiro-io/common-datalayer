@@ -325,7 +325,6 @@ if err != nil {
 ### Child-entities/sub-entities
 When mapping an item to an entity, the mapper can also map child-items into entities. This can either be done by using the `map_all` flag in the `outgoing_mapping_config` or by defining the mappings in the `outgoing_mapping_config` the same way as you would do for regular item properties.
 
-```
 
 ## The Encoder
 
