@@ -695,6 +695,17 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 				default:
 					return fmt.Errorf("unsupported reference type %s, value %v, entityId: %s", reflect.TypeOf(referenceValue), referenceValue, entity.ID)
 				}
+			} else if mapping.DefaultValue != "" {
+				// if the reference is not set, use the default value
+				if mapping.StripReferencePrefix {
+					item.SetValue(propertyName, stripURL(mapping.DefaultValue))
+				} else {
+					item.SetValue(propertyName, mapping.DefaultValue)
+				}
+			} else if mapping.Required {
+				return fmt.Errorf("required reference property '%s' is not set for entity %s", propertyName, entity.ID)
+			} else {
+				// do nothing, reference is not set and not required
 			}
 		} else if mapping.IsDeleted {
 			item.SetValue(propertyName, entity.IsDeleted)
@@ -702,9 +713,13 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 			item.SetValue(propertyName, entity.Recorded)
 		} else {
 			// regular property
-			propertyValue := entity.Properties[entityPropertyName]
-			item.SetValue(propertyName, propertyValue)
+			if propertyValue, ok := entity.Properties[entityPropertyName]; ok {
+				item.SetValue(propertyName, propertyValue)
+			} else if mapping.DefaultValue != "" {
+				item.SetValue(propertyName, mapping.DefaultValue)
+			}
 		}
+
 	}
 
 	// apply custom transforms
