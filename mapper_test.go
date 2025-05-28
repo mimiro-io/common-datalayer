@@ -1081,7 +1081,7 @@ func TestMapIncomingItemWithReferenceMapping(t *testing.T) {
 		t.Error("item property company should be acmecorp")
 	}
 }
-func TestMapIncomingItemWithReferenceMappingDefaulValue(t *testing.T) {
+func TestMapIncomingItemWithReferenceMappingDefaultValue(t *testing.T) {
 	logger := NewLogger("testService", "text", "info")
 
 	incomingConfig := &IncomingMappingConfig{
