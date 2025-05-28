@@ -922,6 +922,47 @@ func TestMapIncomingItemWithPropertyMapping(t *testing.T) {
 		t.Error("item property name should be homer")
 	}
 }
+func TestMapIncomingItemWithPropertyMappingDefaultValue(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	incomingConfig := &IncomingMappingConfig{
+		BaseURI:          "http://data.example.com/schema/",
+		PropertyMappings: make([]*EntityToItemPropertyMapping, 0),
+	}
+
+	incomingConfig.PropertyMappings = append(incomingConfig.PropertyMappings,
+		&EntityToItemPropertyMapping{
+			EntityProperty: "http://data.example.com/schema/name",
+			Property:       "name",
+			DefaultValue:   "defaultName",
+		},
+		&EntityToItemPropertyMapping{
+			Property:             "id",
+			IsIdentity:           true,
+			StripReferencePrefix: true,
+		})
+
+	// make the entity
+	entity := egdm.NewEntity()
+	entity.ID = "http://data.example.com/1"
+	entity.Properties["http://data.example.com/schema/id"] = "1"
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: make([]string, 0)}
+	err := mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item.GetValue("id") != "1" {
+		t.Error("item property id should be 1")
+	}
+
+	if item.GetValue("name") != "defaultName" {
+		t.Error("item property name should be defaultName")
+	}
+}
 
 func TestMapIncomingItemWithBaseURIPropertyMapping(t *testing.T) {
 	logger := NewLogger("testService", "text", "info")
@@ -1038,6 +1079,48 @@ func TestMapIncomingItemWithReferenceMapping(t *testing.T) {
 
 	if item.GetValue("company") != "acmecorp" {
 		t.Error("item property company should be acmecorp")
+	}
+}
+func TestMapIncomingItemWithReferenceMappingDefaultValue(t *testing.T) {
+	logger := NewLogger("testService", "text", "info")
+
+	incomingConfig := &IncomingMappingConfig{
+		BaseURI: "http://data.example.com/schema/",
+	}
+
+	incomingConfig.PropertyMappings = append(incomingConfig.PropertyMappings,
+		&EntityToItemPropertyMapping{
+			EntityProperty:       "http://data.example.com/schema/company",
+			Property:             "company",
+			IsReference:          true,
+			StripReferencePrefix: true,
+			DefaultValue:         "defaultCompany",
+		},
+		&EntityToItemPropertyMapping{
+			Property:             "id",
+			IsIdentity:           true,
+			StripReferencePrefix: true,
+		})
+
+	// make the entity
+	entity := egdm.NewEntity()
+	entity.ID = "http://data.example.com/1"
+	entity.Properties["http://data.example.com/schema/id"] = "1"
+
+	mapper := NewMapper(logger, incomingConfig, nil)
+
+	item := &InMemoryItem{properties: make(map[string]interface{}), propertyNames: []string{"company", "id"}}
+	err := mapper.MapEntityToItem(entity, item)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if item.GetValue("id") != "1" {
+		t.Error("item property id should be 1")
+	}
+
+	if item.GetValue("company") != "defaultCompany" {
+		t.Error("item property company should be defaultCompany")
 	}
 }
 
