@@ -30,6 +30,16 @@ type ParquetEncoderConfig struct {
 	FlushThreshold int64                           `json:"flush_threshold"`
 }
 
+type ParquetJsonSchema struct {
+	Columns []ParquetJsonSchemaColumn `json:"schema"`
+}
+
+type ParquetJsonSchemaColumn struct {
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	Required bool   `json:"required"`
+}
+
 func NewParquetEncoderConfig(sourceConfig map[string]any) (*ParquetEncoderConfig, error) {
 	if sourceConfig["schema"] == nil {
 		return nil, errors.New("no schema specified in source config")
@@ -56,8 +66,15 @@ func NewParquetDecoderConfig(sourceConfig map[string]any) (*ParquetEncoderConfig
 	if sourceConfig["schema"] == nil {
 		return nil, errors.New("no schema specified in source config")
 	}
-	var err error
-	sourceConfig["schema"], err = parquetschema.ParseSchemaDefinition(sourceConfig["schema"].(string))
+	//TODO: create JSON-parser for parquet schema
+	schemaString, err := createParquetSchema(sourceConfig["schema"], sourceConfig["parquet_name"].(string))
+
+	if err != nil {
+		return nil, err
+	}
+
+	//sourceConfig["schema"], err = parquetschema.ParseSchemaDefinition(sourceConfig["schema"].(string))
+	sourceConfig["schema"], err = parquetschema.ParseSchemaDefinition(schemaString)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +95,41 @@ func NewParquetDecoderConfig(sourceConfig map[string]any) (*ParquetEncoderConfig
 	return config, nil
 }
 
+func createParquetSchema(schema any, parquetName string) (string, error) {
+	byteSchema, err := json.Marshal(schema)
+	if err != nil {
+		return "", err
+	}
+	columns := &[]ParquetJsonSchemaColumn{}
+	json.Unmarshal(byteSchema, columns)
+	jsonSchema := &ParquetJsonSchema{}
+	if err != nil {
+		return "", err
+	}
+	jsonSchema.Columns = *columns
+	parquetSchema := fmt.Sprintf("message %s {", parquetName)
+	for _, h := range jsonSchema.Columns {
+		if h.Type == "string" {
+			if h.Required {
+				parquetSchema += fmt.Sprintf("required binary %s (STRING);", h.Name)
+			} else {
+				parquetSchema += fmt.Sprintf("optional binary %s (STRING);", h.Name)
+			}
+		} else {
+			if h.Required {
+				parquetSchema += fmt.Sprintf("required %s %s;", h.Type, h.Name)
+			} else {
+				parquetSchema += fmt.Sprintf("optional %s %s;", h.Type, h.Name)
+			}
+
+		}
+	}
+	parquetSchema += "}"
+	return parquetSchema, nil
+}
+
 type ParquetItemWriter struct {
-	data             io.WriteCloser // don't need this any further, no?
+	data             io.WriteCloser
 	batchInfo        *cdl.BatchInfo
 	writer           *goparquet.FileWriter
 	firstItemWritten bool
@@ -103,8 +153,6 @@ func (c *ParquetItemWriter) Close() error {
 	if err != nil {
 		return err
 	}
-	// log size here if needed
-	//size: = c.writer.CurrentRowGroupSize()
 	return c.data.Close()
 }
 
@@ -224,7 +272,6 @@ func NewParquetItemIterator(sourceConfig map[string]any, data io.ReadCloser) (*P
 	}
 	dataBytes, err := io.ReadAll(data)
 	dec, _ := goparquet.NewFileReader(bytes.NewReader(dataBytes), columns...)
-	// don't need data anymore after this
 	reader := &ParquetItemIterator{data: data, reader: dec, config: config}
 
 	return reader, nil
