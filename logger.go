@@ -23,9 +23,13 @@ type Metrics interface {
 
 type Logger interface {
 	Error(message string, args ...any)
+	Errorf(format string, args ...any)
 	Info(message string, args ...any)
+	Infof(format string, args ...any)
 	Debug(message string, args ...any)
+	Debugf(format string, args ...any)
 	Warn(message string, args ...any)
+	Warnf(format string, args ...any)
 	With(name string, value string) Logger
 }
 
@@ -78,16 +82,32 @@ func (l *logger) Warn(message string, args ...any) {
 	l.log.Warn().Fields(args).Msg(message)
 }
 
+func (l *logger) Warnf(format string, args ...any) {
+	l.log.Warn().Msgf(format, args...)
+}
+
 func (l *logger) Error(message string, args ...any) {
 	l.log.Error().Fields(args).Msg(message)
+}
+
+func (l *logger) Errorf(format string, args ...any) {
+	l.log.Error().Msgf(format, args...)
 }
 
 func (l *logger) Info(message string, args ...any) {
 	l.log.Info().Fields(args).Msg(message)
 }
 
+func (l *logger) Infof(format string, args ...any) {
+	l.log.Info().Msgf(format, args...)
+}
+
 func (l *logger) Debug(message string, args ...any) {
 	l.log.Debug().Fields(args).Msg(message)
+}
+
+func (l *logger) Debugf(format string, args ...any) {
+	l.log.Debug().Msgf(format, args...)
 }
 
 func NewLogger(serviceName string, format string, level string) Logger {
