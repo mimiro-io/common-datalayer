@@ -57,11 +57,13 @@ type CSVItemWriter struct {
 func NewCSVItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*CSVItemWriter, error) {
 	config, err := NewCSVEncoderConfig(sourceConfig)
 	if err != nil {
+		logger.Error("failed to parse CSV encoder config", "error", err.Error())
 		return nil, err
 	}
 
 	enc := csv.NewWriter(data)
 	writer := &CSVItemWriter{data: data, writer: enc, batchInfo: batchInfo, config: config, logger: logger}
+	logger.Info("Created CSV item writer")
 
 	if config.Separator != "" {
 		writer.writer.Comma, err = stringToRune(config.Separator)
@@ -75,12 +77,14 @@ func NewCSVItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.Wr
 			if batchInfo.IsStartBatch {
 				err := writer.writer.Write(config.Columns)
 				if err != nil {
+					logger.Error("failed to write CSV header", "error", err.Error())
 					return nil, err
 				}
 			}
 		} else {
 			err := writer.writer.Write(config.Columns)
 			if err != nil {
+				logger.Error("failed to write CSV header", "error", err.Error())
 				return nil, err
 			}
 		}
@@ -99,6 +103,7 @@ func (c *CSVItemWriter) Write(item cdl.Item) error {
 	var r []string
 
 	row := item.NativeItem().(map[string]any)
+	c.logger.Debug("Writing CSV item", "columns", len(row))
 	for _, h := range c.config.Columns {
 		if _, ok := row[h]; ok {
 			switch v := row[h].(type) {
@@ -140,6 +145,7 @@ func (c *CSVItemWriter) Write(item cdl.Item) error {
 	}
 	err := c.writer.Write(r)
 	if err != nil {
+		c.logger.Error("failed to write CSV row", "error", err.Error())
 		return err
 	}
 	return nil
@@ -155,11 +161,13 @@ type CSVItemIterator struct {
 func NewCSVItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.ReadCloser) (*CSVItemIterator, error) {
 	config, err := NewCSVEncoderConfig(sourceConfig)
 	if err != nil {
+		logger.Error("failed to parse CSV encoder config", "error", err.Error())
 		return nil, err
 	}
 
 	dec := csv.NewReader(data)
 	reader := &CSVItemIterator{data: data, decoder: dec, config: config, logger: logger}
+	logger.Info("Created CSV item iterator")
 
 	if config.Separator != "" {
 		err := errors.New("input string does not match allowed characters")
@@ -197,8 +205,10 @@ func (c *CSVItemIterator) Read() (cdl.Item, error) {
 
 	if err != nil {
 		if err == io.EOF {
+			c.logger.Debug("End of CSV data")
 			return nil, nil
 		}
+		c.logger.Error("failed to read CSV record", "error", err.Error())
 		return nil, err
 	}
 	var entityProps = make(map[string]interface{})
@@ -209,6 +219,7 @@ func (c *CSVItemIterator) Read() (cdl.Item, error) {
 		entityProps[key] = record[j]
 	}
 
+	c.logger.Debug("Read CSV record", "fields", len(entityProps))
 	return &CSVItem{data: entityProps}, nil
 }
 

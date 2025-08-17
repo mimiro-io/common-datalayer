@@ -165,32 +165,38 @@ func readConfig(data io.Reader) (*Config, error) {
 	return config, nil
 }
 
-func loadConfig(configPath string) (*Config, error) {
+func loadConfig(configPath string, logger Logger) (*Config, error) {
 	c := newConfig()
 	c.ConfigPath = configPath
+
+	logger.Info("Loading configuration", "path", configPath)
 
 	// configPath must refer to a folder
 	// iterate all files in the folder that ends with .json
 	// load each file and merge into the config
 	files, err := os.ReadDir(configPath)
 	if err != nil {
+		logger.Error("Failed to read config directory", "error", err.Error())
 		return nil, err
 	}
 
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".json") {
+			logger.Debug("Reading config file", "file", file.Name())
 			var reader io.Reader
 			// load from file
 			var err error
 			reader, err = os.Open(filepath.Join(configPath, file.Name()))
 			if err != nil {
+				logger.Error("Failed to open config file", "file", file.Name(), "error", err.Error())
 				return nil, err
 			}
 			config, err := readConfig(reader)
 			if err != nil {
+				logger.Error("Failed to read config file", "file", file.Name(), "error", err.Error())
 				return nil, err
 			}
-			addConfig(c, config)
+			addConfig(c, config, logger)
 		}
 	}
 
@@ -208,55 +214,65 @@ func loadConfig(configPath string) (*Config, error) {
 		c.DatasetDefinitions = make([]*DatasetDefinition, 0)
 	}
 
-	addEnvOverrides(c)
+	addEnvOverrides(c, logger)
+	logger.Info("Configuration loaded", "datasets", len(c.DatasetDefinitions))
 	return c, nil
 }
 
-func addEnvOverrides(c *Config) {
+func addEnvOverrides(c *Config, logger Logger) {
 	val, found := os.LookupEnv("PORT")
 	if found {
+		logger.Debug("Env override applied", "key", "PORT", "value", val)
 		c.LayerServiceConfig.Port = json.Number(val)
 	}
 
 	val, found = os.LookupEnv("CONFIG_REFRESH_INTERVAL")
 	if found {
+		logger.Debug("Env override applied", "key", "CONFIG_REFRESH_INTERVAL", "value", val)
 		c.LayerServiceConfig.ConfigRefreshInterval = val
 	}
 
 	val, found = os.LookupEnv("SERVICE_NAME")
 	if found {
+		logger.Debug("Env override applied", "key", "SERVICE_NAME", "value", val)
 		c.LayerServiceConfig.ServiceName = val
 	}
 
 	val, found = os.LookupEnv("STATSD_ENABLED")
 	if found {
+		logger.Debug("Env override applied", "key", "STATSD_ENABLED", "value", val)
 		c.LayerServiceConfig.StatsdEnabled = val == "true"
 	}
 
 	val, found = os.LookupEnv("STATSD_AGENT_ADDRESS")
 	if found {
+		logger.Debug("Env override applied", "key", "STATSD_AGENT_ADDRESS", "value", val)
 		c.LayerServiceConfig.StatsdAgentAddress = val
 	}
 
 	val, found = os.LookupEnv("LOG_LEVEL")
 	if found {
+		logger.Debug("Env override applied", "key", "LOG_LEVEL", "value", val)
 		c.LayerServiceConfig.LogLevel = val
 	}
 
 	val, found = os.LookupEnv("LOG_FORMAT")
 	if found {
+		logger.Debug("Env override applied", "key", "LOG_FORMAT", "value", val)
 		c.LayerServiceConfig.LogFormat = val
 	}
 }
 
-func addConfig(mainConfig *Config, partialConfig *Config) {
+func addConfig(mainConfig *Config, partialConfig *Config, logger Logger) {
 	// system config can only be defined once any repeats replace it
 	if partialConfig.NativeSystemConfig != nil {
+		logger.Debug("Merging native system config")
 		mainConfig.NativeSystemConfig = partialConfig.NativeSystemConfig
 	}
 
 	// layer service config can only be defined once any repeats replace it
 	if partialConfig.LayerServiceConfig != nil {
+		logger.Debug("Merging layer service config")
 		mainConfig.LayerServiceConfig = partialConfig.LayerServiceConfig
 	}
 
@@ -271,6 +287,7 @@ func addConfig(mainConfig *Config, partialConfig *Config) {
 			for _, existingDef := range mainConfig.DatasetDefinitions {
 				if existingDef.DatasetName == def.DatasetName {
 					exists = true
+					logger.Info("Updating dataset definition", "dataset", def.DatasetName)
 					existingDef.SourceConfig = def.SourceConfig
 					existingDef.IncomingMappingConfig = def.IncomingMappingConfig
 					existingDef.OutgoingMappingConfig = def.OutgoingMappingConfig
@@ -278,6 +295,7 @@ func addConfig(mainConfig *Config, partialConfig *Config) {
 				break
 			}
 			if !exists {
+				logger.Info("Adding dataset definition", "dataset", def.DatasetName)
 				mainConfig.DatasetDefinitions = append(mainConfig.DatasetDefinitions, def)
 			}
 		}
