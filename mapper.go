@@ -38,13 +38,19 @@ func NewMapper(logger Logger, incomingMappingConfig *IncomingMappingConfig, outg
 func (mapper *Mapper) verifyBaseUri() {
 	if mapper.incomingMappingConfig != nil && mapper.incomingMappingConfig.BaseURI != "" {
 		if !strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "/") && !strings.HasSuffix(mapper.incomingMappingConfig.BaseURI, "#") {
+			mapper.logger.Debug("Adjusting incoming base URI", "base", mapper.incomingMappingConfig.BaseURI)
 			mapper.incomingMappingConfig.BaseURI = mapper.incomingMappingConfig.BaseURI + "/"
 		}
+	} else if mapper.incomingMappingConfig != nil {
+		mapper.logger.Warn("No incoming base URI configured")
 	}
 	if mapper.outgoingMappingConfig != nil && mapper.outgoingMappingConfig.BaseURI != "" {
 		if !strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "/") && !strings.HasSuffix(mapper.outgoingMappingConfig.BaseURI, "#") {
+			mapper.logger.Debug("Adjusting outgoing base URI", "base", mapper.outgoingMappingConfig.BaseURI)
 			mapper.outgoingMappingConfig.BaseURI = mapper.outgoingMappingConfig.BaseURI + "/"
 		}
+	} else if mapper.outgoingMappingConfig != nil {
+		mapper.logger.Warn("No outgoing base URI configured")
 	}
 }
 
@@ -78,6 +84,7 @@ func (m *mutableItem) NativeItem() any { return m.item.NativeItem() }
 func (m *mutableItem) GetPropertyNames() []string { return m.item.GetPropertyNames() }
 
 func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
+	mapper.logger.Debug("Mapping item to entity")
 
 	// ensure props and refs are not nil
 	if entity.Properties == nil {
@@ -92,6 +99,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 	constructedProperties := make(map[string]any)
 	item = &mutableItem{item, constructedProperties}
 	if mapper.outgoingMappingConfig == nil {
+		mapper.logger.Error("outgoing mapping config is nil")
 		return fmt.Errorf("outgoing mapping config is nil")
 	}
 
@@ -312,9 +320,11 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 
 	// apply custom transforms
 	if len(mapper.itemToEntityCustomTransform) > 0 {
+		mapper.logger.Debug("Applying custom transforms to entity")
 		for _, transform := range mapper.itemToEntityCustomTransform {
 			err := transform(item, entity)
 			if err != nil {
+				mapper.logger.Error("custom transform failed", "error", err.Error())
 				return fmt.Errorf("custom transform failed. mapper: %+v, item: %+v, error: %w", mapper, item.NativeItem(), err)
 			}
 		}
@@ -325,6 +335,7 @@ func (mapper *Mapper) MapItemToEntity(item Item, entity *egdm.Entity) error {
 		entity.References["http://www.w3.org/1999/02/22-rdf-syntax-ns#type"] = mapper.outgoingMappingConfig.DefaultType
 	}
 
+	mapper.logger.Debug("Finished mapping item to entity", "entityID", entity.ID)
 	return nil
 }
 
@@ -646,6 +657,7 @@ func stripURL(url string) string {
 }
 
 func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
+	mapper.logger.Debug("Mapping entity to item", "entityID", entity.ID)
 	// do map named as this is the more general case, then do the property mappings
 	if mapper.incomingMappingConfig.MapNamed {
 		for _, propertyName := range item.GetPropertyNames() {
@@ -693,6 +705,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 						item.SetValue(propertyName, v)
 					}
 				default:
+					mapper.logger.Error("unsupported reference type", "type", reflect.TypeOf(referenceValue), "entity", entity.ID)
 					return fmt.Errorf("unsupported reference type %s, value %v, entityId: %s", reflect.TypeOf(referenceValue), referenceValue, entity.ID)
 				}
 			} else if mapping.DefaultValue != "" {
@@ -703,6 +716,7 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 					item.SetValue(propertyName, mapping.DefaultValue)
 				}
 			} else if mapping.Required {
+				mapper.logger.Error("required reference property missing", "property", propertyName, "entity", entity.ID)
 				return fmt.Errorf("required reference property '%s' is not set for entity %s", propertyName, entity.ID)
 			} else {
 				// do nothing, reference is not set and not required
@@ -724,14 +738,17 @@ func (mapper *Mapper) MapEntityToItem(entity *egdm.Entity, item Item) error {
 
 	// apply custom transforms
 	if len(mapper.entityToItemCustomTransform) > 0 {
+		mapper.logger.Debug("Applying custom transforms to item")
 		for _, transform := range mapper.entityToItemCustomTransform {
 			err := transform(entity, item)
 			if err != nil {
+				mapper.logger.Error("custom transform failed", "error", err.Error())
 				return fmt.Errorf("custom transform failed. mapper: %+v, entity: %+v, error: %w", mapper, entity, err)
 			}
 		}
 	}
 
+	mapper.logger.Debug("Finished mapping entity to item", "entityID", entity.ID)
 	return nil
 }
 

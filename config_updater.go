@@ -48,9 +48,11 @@ func newConfigUpdater(
 		var err error
 		interval, err = asDuration(config.LayerServiceConfig.ConfigRefreshInterval)
 		if err != nil {
+			l.Error("Invalid config refresh interval", "error", err.Error())
 			return nil, err
 		}
 	}
+	l.Info("Starting config updater", "interval", interval.String())
 	u.ticker = time.NewTicker(interval)
 	u.config = config
 
@@ -64,7 +66,7 @@ func newConfigUpdater(
 
 func (u *configUpdater) checkForUpdates(enrichConfig func(config *Config) error, logger Logger, listeners ...DataLayerService) {
 	logger.Debug("checking config for updates in " + u.config.ConfigPath + ".")
-	loadedConf, err := loadConfig(u.config.ConfigPath)
+	loadedConf, err := loadConfig(u.config.ConfigPath, logger)
 	if err != nil {
 		logger.Error(fmt.Sprintf("Failed to load config: %v", err.Error()))
 		return

@@ -6,7 +6,8 @@ import (
 )
 
 func TestConfig(t *testing.T) {
-	config, err := loadConfig("./testdata")
+	logger := NewLogger("test", "text", "debug")
+	config, err := loadConfig("./testdata", logger)
 	if err != nil {
 		t.Error(err)
 	}
@@ -27,7 +28,8 @@ func TestConfig_AddEnvOverrides(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("LOG_FORMAT", "json")
 
-	config, err := loadConfig("./testdata")
+	logger := NewLogger("test", "text", "debug")
+	config, err := loadConfig("./testdata", logger)
 	if err != nil {
 		t.Error(err)
 	}

@@ -9,8 +9,10 @@ import (
 func NewItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.ReadCloser) (ItemIterator, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
+		logger.Error("no encoding specified in source config")
 		return nil, errors.New("no encoding specified in source config")
 	}
+	logger.Debug("Creating item iterator", "encoding", encoding)
 	if encoding == "json" {
 		return NewJsonItemIterator(sourceConfig, logger, data)
 	}
@@ -27,8 +29,10 @@ func NewItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io.Rea
 func NewItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (ItemWriter, error) {
 	encoding, ok := sourceConfig["encoding"]
 	if !ok {
+		logger.Error("no encoding specified in source config")
 		return nil, errors.New("no encoding specified in source config")
 	}
+	logger.Debug("Creating item writer", "encoding", encoding)
 
 	if encoding == "json" {
 		return NewJsonItemWriter(sourceConfig, logger, data, batchInfo)

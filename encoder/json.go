@@ -29,6 +29,7 @@ type JsonItemWriter struct {
 func NewJsonItemWriter(sourceConfig map[string]any, logger cdl.Logger, data io.WriteCloser, batchInfo *cdl.BatchInfo) (*JsonItemWriter, error) {
 	enc := json.NewEncoder(data)
 	writer := &JsonItemWriter{data: data, encoder: enc, batchInfo: batchInfo, logger: logger}
+	logger.Info("Created JSON item writer")
 
 	if batchInfo != nil {
 		if batchInfo.IsStartBatch {
@@ -71,12 +72,14 @@ func (j *JsonItemWriter) Write(item cdl.Item) error {
 	if j.firstItemWritten {
 		_, err := j.data.Write([]byte(","))
 		if err != nil {
+			j.logger.Error("failed to write JSON comma", "error", err.Error())
 			return err
 		}
 	} else {
 		j.firstItemWritten = true
 	}
 
+	j.logger.Debug("Writing JSON item")
 	return j.encoder.Encode(item.NativeItem())
 }
 
@@ -98,12 +101,16 @@ func NewJsonItemIterator(sourceConfig map[string]any, logger cdl.Logger, data io
 	// check the start is an array token
 	token, err := dec.Token()
 	if err != nil {
+		logger.Error("failed to read JSON token", "error", err.Error())
 		return nil, err
 	}
 
 	if token != json.Delim('[') {
+		logger.Error("expected [ at start of data stream")
 		return nil, errors.New("expected [ at start of data stream")
 	}
+
+	logger.Info("Created JSON item iterator")
 
 	return &JsonItemIterator{data: data, decoder: dec, logger: logger}, nil
 }
@@ -117,9 +124,11 @@ func (j *JsonItemIterator) Read() (cdl.Item, error) {
 		var obj map[string]interface{}
 		err := j.decoder.Decode(&obj)
 		if err != nil {
+			j.logger.Error("failed to decode JSON object", "error", err.Error())
 			return nil, err
 		}
 
+		j.logger.Debug("Read JSON object", "fields", len(obj))
 		return &JsonItem{data: obj}, nil
 	}
 	return nil, nil
