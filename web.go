@@ -186,9 +186,9 @@ func (ws *dataLayerWebService) postEntities(c echo.Context) error {
 	var writer DatasetWriter
 
 	if udaFullSyncId != "" {
-		writer, err = ds.FullSync(context.Background(), batchInfo)
+		writer, err = ds.FullSync(c.Request().Context(), batchInfo)
 	} else {
-		writer, err = ds.Incremental(context.Background())
+		writer, err = ds.Incremental(c.Request().Context())
 	}
 	if err != nil {
 		ws.logger.Warn(err.Error())
