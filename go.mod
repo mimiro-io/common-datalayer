@@ -1,12 +1,12 @@
 module github.com/mimiro-io/common-datalayer
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.9.0
 	github.com/fraugster/parquet-go v0.12.0
 	github.com/hashicorp/go-uuid v1.0.3
-	github.com/labstack/echo/v4 v4.15.4
+	github.com/labstack/echo/v4 v4.16.4
 	github.com/mimiro-io/entity-graph-data-model v0.7.11
 	github.com/rs/zerolog v1.35.1
 )
@@ -20,9 +20,9 @@ require (
 	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	golang.org/x/crypto v0.54.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
+	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 )
